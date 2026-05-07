@@ -1,0 +1,20 @@
+# 忽略前端和后端的环境配置文件 (极其重要)
+.env
+*.env
+.env.local
+
+# 忽略前端依赖
+frontend/node_modules/
+frontend/.umi/
+frontend/dist/
+
+# 忽略后端编译产物和上传的文件
+backend/uploads/
+backend/ai-kms.exe
+backend/ai-kms
+
+# 忽略各种编辑器缓存
+.DS_Store
+.idea/
+.vscode/
+*.log

@@ -1,0 +1,377 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "这是基于 Gin 和 OpenAPI 构建的 AI-KMS 后端服务。",
+        "title": "AI 知识库管理平台 API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/api/v1",
+    "paths": {
+        "/chat": {
+            "post": {
+                "description": "向 DeepSeek 发送问题并获取回答",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI"
+                ],
+                "summary": "AI 聊天测试",
+                "operationId": "simpleChat",
+                "parameters": [
+                    {
+                        "description": "用户提问",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ChatRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/kb": {
+            "get": {
+                "description": "从数据库获取所有未被删除的知识库",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "KnowledgeBase"
+                ],
+                "summary": "获取知识库列表",
+                "operationId": "getKnowledgeBases",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.KnowledgeBase"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "接收前端参数并在数据库中创建新记录",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "KnowledgeBase"
+                ],
+                "summary": "创建新知识库",
+                "operationId": "creatKnowledgeBase",
+                "parameters": [
+                    {
+                        "description": "请求参数",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateKBRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.KnowledgeBase"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/kb/{id}": {
+            "delete": {
+                "description": "根据 ID 软删除知识库记录",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "KnowledgeBase"
+                ],
+                "summary": "删除知识库",
+                "operationId": "deleteKnowledgeBase",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "知识库 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/kb/{kb_id}/docs": {
+            "get": {
+                "description": "根据知识库 ID 获取该库下的所有文档",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Document"
+                ],
+                "summary": "获取文档列表",
+                "operationId": "getDocuments",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "知识库 ID",
+                        "name": "kb_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.Document"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/kb/{kb_id}/upload": {
+            "post": {
+                "description": "接收前端传来的文件，保存到本地 uploads 目录，并记录到数据库",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Document"
+                ],
+                "summary": "上传文档",
+                "operationId": "uploadDocument",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "知识库 ID",
+                        "name": "kb_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "要上传的文件",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.Document"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "controllers.ChatRequest": {
+            "type": "object",
+            "required": [
+                "message"
+            ],
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.CreateKBRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "chunkSize": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Document": {
+            "type": "object",
+            "properties": {
+                "chunkCount": {
+                    "description": "切片数量",
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "fileName": {
+                    "type": "string"
+                },
+                "filePath": {
+                    "description": "文件在服务器上的物理路径",
+                    "type": "string"
+                },
+                "fileSize": {
+                    "description": "文件大小(字节)",
+                    "type": "integer"
+                },
+                "fileType": {
+                    "description": "比如 pdf, txt, docx",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "knowledgeBaseId": {
+                    "description": "所属知识库的 ID",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "状态: pending等待解析, parsing解析中, success成功, failed失败",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.KnowledgeBase": {
+            "type": "object",
+            "properties": {
+                "chunkSize": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "docCount": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Response": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {},
+                "message": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

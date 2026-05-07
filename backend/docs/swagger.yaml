@@ -1,0 +1,240 @@
+basePath: /api/v1
+definitions:
+  controllers.ChatRequest:
+    properties:
+      message:
+        type: string
+    required:
+    - message
+    type: object
+  models.CreateKBRequest:
+    properties:
+      chunkSize:
+        type: integer
+      description:
+        type: string
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  models.Document:
+    properties:
+      chunkCount:
+        description: 切片数量
+        type: integer
+      createdAt:
+        type: string
+      fileName:
+        type: string
+      filePath:
+        description: 文件在服务器上的物理路径
+        type: string
+      fileSize:
+        description: 文件大小(字节)
+        type: integer
+      fileType:
+        description: 比如 pdf, txt, docx
+        type: string
+      id:
+        type: integer
+      knowledgeBaseId:
+        description: 所属知识库的 ID
+        type: integer
+      status:
+        description: '状态: pending等待解析, parsing解析中, success成功, failed失败'
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  models.KnowledgeBase:
+    properties:
+      chunkSize:
+        type: integer
+      createdAt:
+        type: string
+      description:
+        type: string
+      docCount:
+        type: integer
+      id:
+        type: integer
+      name:
+        type: string
+      status:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  models.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: 这是基于 Gin 和 OpenAPI 构建的 AI-KMS 后端服务。
+  title: AI 知识库管理平台 API
+  version: "1.0"
+paths:
+  /chat:
+    post:
+      consumes:
+      - application/json
+      description: 向 DeepSeek 发送问题并获取回答
+      operationId: simpleChat
+      parameters:
+      - description: 用户提问
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.ChatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: AI 聊天测试
+      tags:
+      - AI
+  /kb:
+    get:
+      consumes:
+      - application/json
+      description: 从数据库获取所有未被删除的知识库
+      operationId: getKnowledgeBases
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.KnowledgeBase'
+                  type: array
+              type: object
+      summary: 获取知识库列表
+      tags:
+      - KnowledgeBase
+    post:
+      consumes:
+      - application/json
+      description: 接收前端参数并在数据库中创建新记录
+      operationId: creatKnowledgeBase
+      parameters:
+      - description: 请求参数
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateKBRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.KnowledgeBase'
+              type: object
+      summary: 创建新知识库
+      tags:
+      - KnowledgeBase
+  /kb/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据 ID 软删除知识库记录
+      operationId: deleteKnowledgeBase
+      parameters:
+      - description: 知识库 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: 删除知识库
+      tags:
+      - KnowledgeBase
+  /kb/{kb_id}/docs:
+    get:
+      consumes:
+      - application/json
+      description: 根据知识库 ID 获取该库下的所有文档
+      operationId: getDocuments
+      parameters:
+      - description: 知识库 ID
+        in: path
+        name: kb_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Document'
+                  type: array
+              type: object
+      summary: 获取文档列表
+      tags:
+      - Document
+  /kb/{kb_id}/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 接收前端传来的文件，保存到本地 uploads 目录，并记录到数据库
+      operationId: uploadDocument
+      parameters:
+      - description: 知识库 ID
+        in: path
+        name: kb_id
+        required: true
+        type: integer
+      - description: 要上传的文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Document'
+              type: object
+      summary: 上传文档
+      tags:
+      - Document
+swagger: "2.0"

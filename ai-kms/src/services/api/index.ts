@@ -5,6 +5,6 @@
 import * as document from './document';
 import * as knowledgeBase from './knowledgeBase';
 export default {
-  knowledgeBase,
   document,
+  knowledgeBase,
 };

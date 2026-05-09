@@ -21,5 +21,10 @@ export default defineConfig({
       projectName: 'api', // 代码会生成到 src/services/api 目录下
     },
   ],
-
+  proxy: {
+    '/api': {
+      target: 'http://localhost:8080',
+      changeOrigin: true,
+    },
+  },
 });

@@ -10,7 +10,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-// AIClient 定义全局AI客户端
+// 定义全局AI客户端
 var ChatClient *openai.Client
 var EmbedClint *openai.Client
 

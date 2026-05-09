@@ -26,6 +26,7 @@ import {
 import { useEffect, useState } from 'react';
 import CreateKbModal from './components/CreateKbModal';
 import KbDetailDrawer from './components/KbDetailDrawer';
+import { formatTime } from '@/utils/format';
 
 const { Paragraph } = Typography;
 
@@ -210,12 +211,8 @@ export default function KnowledgeBaseList() {
                   <span>{kb.docCount} 份文档</span>
                 </div>
                 <div>
-                  更新于{' '}
-                  {kb.updatedAt
-                    ? new Date(kb.updatedAt)
-                        .toLocaleString('zh-CN', { hour12: false })
-                        .substring(0, 16)
-                    : '-'}
+                  更新于{formatTime(kb.updatedAt)}
+                  
                 </div>
               </div>
             </Card>

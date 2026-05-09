@@ -6,6 +6,7 @@ import (
 	"backend/middlewares"
 	"backend/services"
 	"fmt"
+	"log"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -27,30 +28,43 @@ func main() {
 
 	vec, err := services.GetEmbedding("测试一下智谱的向量接口！")
 	if err != nil {
-		fmt.Println("获取向量失败，智谱返回的错误是：%v\n", err)
+		fmt.Printf("获取向量失败，智谱返回的错误是：%v\n", err)
 		fmt.Println("架构师提示：请去 services/ai_service.go 检查你的 zhipuKey 是否填对！")
 	} else {
-		fmt.Printf("测试向量提取，成功获取到 %d 维度的浮点数，前三个数字是: %v (错误: %v)\n", len(vec), vec[:3])
+		fmt.Printf("测试向量提取，成功获取到 %d 维度的浮点数，前三个数字是: %v (错误: %v)\n", len(vec), vec[:3], err)
 	}
 	r := gin.Default()
 	r.Use(middlewares.Cors()) // 挂载中间件
 
-	// 3. 注册 Swagger
+	// 注册 Swagger
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	// 4. 注册路由 (交给控制器处理)
-	v1 := r.Group("/api/v1")
+	// 注册路由 (交给控制器处理)
+	public := r.Group("/api/v1")
 	{
-		v1.GET("/kb", controllers.GetKnowledgeBases)
-		v1.POST("/kb", controllers.CreateKnowledgeBase)
-		v1.DELETE("/kb/:id", controllers.DeleteKnowledgeBase)
-		v1.GET("/kb/:kb_id/docs", controllers.GetDocuments)
-		v1.POST("/kb/:kb_id/upload", controllers.UploadDocument)
-		v1.POST("/chat", controllers.SimpleChat)
-		v1.POST("/test-embedding", controllers.TestEmbedding)
-		//注册删除文档的路由
-		v1.DELETE("/docs/:doc_id", controllers.DeleteDocument)
+		// 预留给未来的登录接口
+		public.POST("/login", controllers.Login)
+		public.POST("/refresh", controllers.RefreshToken)
 	}
 
-	r.Run(":8080")
+	protected := r.Group("/api/v1")
+	protected.Use(middlewares.JWTAuth())
+	{
+		protected.GET("/kb", controllers.GetKnowledgeBases)
+		protected.POST("/kb", controllers.CreateKnowledgeBase)
+		protected.DELETE("/kb/:id", controllers.DeleteKnowledgeBase)
+		protected.GET("/kb/:kb_id/docs", controllers.GetDocuments)
+		protected.POST("/kb/:kb_id/upload", controllers.UploadDocument)
+		protected.POST("/chat", controllers.SimpleChat)
+		//会话历史路由
+		protected.GET("/sessions", controllers.GetSessions)
+		protected.POST("/sessions", controllers.CreateSession)
+		protected.GET("/sessions/:id/messages", controllers.GetSessionMessages)
+		protected.DELETE("/sessions/:id", controllers.DeleteSession)
+		protected.POST("/test-embedding", controllers.TestEmbedding)
+		//注册删除文档的路由
+		protected.DELETE("/docs/:doc_id", controllers.DeleteDocument)
+	}
+
+	log.Fatal(r.Run(":8080"))
 }

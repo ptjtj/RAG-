@@ -4,7 +4,7 @@ package config
 import (
 	"log"
 
-	"backend/models" // 引入你的 models 包
+	"backend/models" // 引入 models 包
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -27,6 +27,8 @@ func InitDB() {
 		&models.KnowledgeBase{},
 		&models.Document{}, //建文档表
 		&models.DocumentChunk{},
+		&models.ChatSession{},
+		&models.ChatMessage{},
 	)
 	if err != nil {
 		log.Fatal("自动建表失败: ", err)

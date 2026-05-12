@@ -1,10 +1,12 @@
 package config
 
-//配置与数据库连接
+// 配置与数据库连接（改为从环境变量读取，保留默认回退）
 import (
+	"fmt"
 	"log"
+	"os"
 
-	"backend/models" // 引入 models 包
+	"backend/models"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -15,17 +17,39 @@ var DB *gorm.DB
 
 // InitDB 初始化数据库 (必须大写)
 func InitDB() {
-	dsn := "root:123456@tcp(127.0.0.1:3306)/ai_kms?charset=utf8mb4&parseTime=True&loc=Local"
+	// 从环境变量读取数据库配置，未设置时使用默认值
+	dbUser := os.Getenv("DB_USER")
+	if dbUser == "" {
+		dbUser = "root"
+	}
+	dbPass := os.Getenv("DB_PASS")
+	if dbPass == "" {
+		dbPass = "123456"
+	}
+	dbHost := os.Getenv("DB_HOST")
+	if dbHost == "" {
+		dbHost = "127.0.0.1"
+	}
+	dbPort := os.Getenv("DB_PORT")
+	if dbPort == "" {
+		dbPort = "3306"
+	}
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "ai_kms"
+	}
+
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", dbUser, dbPass, dbHost, dbPort, dbName)
 
 	var err error
 	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatal("连接数据库失败，请检查密码或库名: ", err)
+		log.Fatal("连接数据库失败，请检查环境变量或 DSN: ", err)
 	}
 
 	err = DB.AutoMigrate(
 		&models.KnowledgeBase{},
-		&models.Document{}, //建文档表
+		&models.Document{}, // 建文档表
 		&models.DocumentChunk{},
 		&models.ChatSession{},
 		&models.ChatMessage{},
@@ -35,7 +59,7 @@ func InitDB() {
 		log.Fatal("自动建表失败: ", err)
 	}
 
-	log.Println("MySQL 数据库连接并迁移成功！")
+	log.Printf("MySQL 数据库连接并迁移成功：%s@%s:%s/%s", dbUser, dbHost, dbPort, dbName)
 }
 
 // InitSeedData 播种基础数据 (必须大写)

@@ -23,6 +23,16 @@ type RefreshRequest struct {
 }
 
 // 登录
+// @Summary 用户登录
+// @Description 用户输入账号和密码进行登录，成功后返回短令牌 (accessToken) 和长令牌 (refreshToken)
+// @Tags 认证 (Auth)
+// @Accept json
+// @Produce json
+// @Param data body LoginRequest true "登录账号和密码"
+// @Success 200 {object} models.Response "成功"
+// @Failure 400 {object} models.Response "参数错误"
+// @Failure 401 {object} models.Response "账号或密码错误"
+// @Router /login [post]
 func Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

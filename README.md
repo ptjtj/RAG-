@@ -3,35 +3,46 @@
 ## 项目概述
 
 这是一个轻量级的企业级 AI 知识库管理与问答示例工程，包含前端管理控制台（位于 `ai-kms/`）和后端服务（位于 `backend/`）。前端使用 Umi Max + TypeScript + Ant Design + Tailwind 实现交互与页面，后端使用 Gin + GORM + Go 实现 API、文档解析、向量化与 AI 调用。
-## 登录账号密码
-admin 
-123456
 
-## 已实现的主要功能
+# ai-knowledgeStock
 
-- 知识库管理：创建/删除知识库、查看知识库详情、展示文档数量与状态（实现于 `ai-kms/src/pages/kb`）。
-- 文档上传与解析：支持上传 `txt`/`docx`/`pdf`，服务器保存文件并异步解析为文本切片，然后对切片做向量化并入库（实现于 `backend/controllers/doc_controller.go` + `backend/services/parser_service.go`）。
-- 去重检查：上传时按文件 MD5 查重，避免重复上传（见 `UploadDocument`）。
-- 向量化（Embedding）：集成外部向量接口获取 embeddings（封装在 `backend/services/ai_service.go` 的 `GetEmbedding`）。
-- 语义检索（RAG）：在提问时可按知识库 ID 检索高相似度切片，并将背景知识拼接进 Prompt（实现于 `backend/services/vector_service.go` 的 `SearchTopChunksWithSources`）。
-- 智能问答：把检索到的背景知识与用户问题一起发送到指定大模型（DeepSeek 风格的 Chat API），返回回答同时携带来源（实现于 `backend/controllers/ai_controller.go`）。
-- 前端交互体验：聊天实时“打字”效果、来源 Tag 展示、`/embed` 命令用于测试 embedding 接口（实现于 `ai-kms/src/pages/chat/index.tsx`）。
+## 简要说明
 
-## 技术栈
+ai-knowledgeStock 是一个带前端控制台与 Go 后端的 AI 知识库示例工程。功能涵盖知识库管理、文档上传与解析、向量化嵌入、语义检索（RAG）以及基于外部大模型的问答。前端在 `ai-kms/`，后端在 `backend/`。
 
-- 前端：`@umijs/max`、TypeScript、React、Ant Design、Tailwind CSS
-- 后端：Go、Gin、GORM、Swag (Swagger)、openai-go-sdk（用于对接 DeepSeek/智谱兼容接口）
-- 存储：MySQL（通过 GORM，初始化见 `backend/config`）与本地文件系统 `uploads/` 存放原始文件
+## 快速亮点
 
-## 核心实现说明
+- 知识库（KB）管理：创建/删除知识库、查看文档列表与状态。
+- 文档处理：支持 `.txt`/`.docx`/`.pdf` 上传，异步解析为 chunk 并做 embedding。
+- 语义检索 + RAG：基于向量检索返回背景片段并展示来源。
+- 会话管理：支持会话创建、历史存储与删除。
 
-- 文档解析：`backend/services/parser_service.go` 支持 `.txt`、`.docx`、`.pdf`，将文本按字符数切分为若干 chunk 并调用 `GetEmbedding` 进行向量化，向量与文本存入 `document_chunks` 表。
-- 向量相似度搜索：使用余弦相似度在已向量化的 chunks 中检索高分片段，取 top-N 并返回同时作为“背景知识”和来源标签。
-- AI 交互：`InitAI()` 从环境变量加载 `DEEPSEEK_API_KEY` 与 `ZHIPU_API_KEY`（或等效替代），分别用于聊天与 embedding；`TestChat` 调用 DeepSeek-compatible 接口完成对话生成。
+## 先决条件
+
+- Go 1.20+
+- Node.js 18+/pnpm（前端）
+- MySQL 可用并能创建数据库（默认 DSN 在 `backend/config/db.go` 指向 `ai_kms`）
+- 可选：DeepSeek / 智谱 等外部 AI Key（详见下文）
 
 ## 快速运行（本地）
 
-1. 前端（开发）
+1. 准备数据库（示例 SQL）
+
+```sql
+CREATE DATABASE ai_kms CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+```
+
+2. 后端（在 `backend/`）
+
+```bash
+cd backend
+# 若需调整 DB 连接，请编辑 backend/config/db.go 中的 DSN
+go run main.go
+```
+
+后端会自动执行 GORM 的 `AutoMigrate` 并播种示例数据（若表为空），包括默认管理员 `admin / 123456`。
+
+3. 前端（在 `ai-kms/`）
 
 ```bash
 cd ai-kms
@@ -39,32 +50,85 @@ pnpm install
 pnpm dev
 ```
 
-2. 后端（开发）
+## 重要环境变量
 
-```bash
+- `DEEPSEEK_API_KEY`：用于 Chat（DeepSeek 兼容 API）
+- `ZHIPU_API_KEY`：用于 Embedding（智谱 / 大模型服务）
+
+## 数据库（环境变量）
+
+- `DB_USER`：数据库用户名（默认 `root`）
+- `DB_PASS`：数据库密码（默认 `123456`）
+- `DB_HOST`：数据库主机（默认 `127.0.0.1`）
+- `DB_PORT`：数据库端口（默认 `3306`）
+- `DB_NAME`：数据库名称（默认 `ai_kms`）
+
+后端会优先从上述环境变量读取数据库连接信息，若未设置则使用默认回退值。示例（PowerShell 临时设置并启动）：
+
+```powershell
+$env:DB_USER='root'
+$env:DB_PASS='123456'
+$env:DB_HOST='127.0.0.1'
+$env:DB_PORT='3306'
+$env:DB_NAME='ai_kms'
 cd backend
-# 请先准备好 MySQL 并填写配置（见 backend/config）
 go run main.go
 ```
 
-3. 环境变量
+或在 Linux/macOS 下临时一行设置并运行：
 
-- `DEEPSEEK_API_KEY`：用于 Chat 接口
-- `ZHIPU_API_KEY`：用于 Embedding（或按项目 README/代码调整）
+```bash
+DB_USER=root DB_PASS=123456 DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=ai_kms go run backend/main.go
+```
 
-## 关键文件与目录（快速导航）
+## 后端与 API 概览
 
-- 后端启动入口：`backend/main.go`
-- 后端控制器：`backend/controllers/`（`ai_controller.go`、`doc_controller.go`、`kb_controller.go`）
-- 后端服务实现：`backend/services/`（`ai_service.go`、`parser_service.go`、`vector_service.go`）
-- 数据模型：`backend/models/`（`kb.go`、`doc.go`、`chunk.go`）
-- 上传文件目录：`uploads/`（示例：`uploads/kb_5/`）
-- 前端工程：`ai-kms/`（`package.json`、`src/pages/chat`、`src/pages/kb`、`src/services/api`）
+- 登录与用户（示例）: `POST /api/v1/login`、`POST /api/v1/register`（公共）；大部分管理接口受 JWT 保护。
+- 知识库：
+  - `GET /api/v1/kb` 列表
+  - `POST /api/v1/kb` 创建
+  - `DELETE /api/v1/kb/:id` 删除
+- 文档：
+  - `GET /api/v1/kb/:kb_id/docs`
+  - `POST /api/v1/kb/:kb_id/upload`（表单上传 `file` 字段）
+  - `DELETE /api/v1/docs/:doc_id` 删除文档及其切片
+- 聊天与会话：
+  - `POST /api/v1/chat`（接受 `message`, 可选 `kbId` 与 `sessionId`）
+  - `GET /api/v1/sessions` / `POST /api/v1/sessions` / `DELETE /api/v1/sessions/:id`
+  - `GET /api/v1/sessions/:id/messages` 获取会话历史
+- 测试 embedding：`POST /api/v1/test-embedding` （body `{text}`）
 
-## 已知约束与注意事项
+## 代码位置（快速导航）
 
-- 后端依赖外部 AI 服务（DeepSeek、智谱等），请确保相应 API Key 正确配置并可访问。
-- 文档解析依赖第三方库（如 `github.com/ledongthuc/pdf`），部分特殊 PDF/Docx 可能解析不完整。
-- 目前向量阈值、chunk 大小等参数写在代码或数据库默认值中，可按需调整（`kb.ChunkSize` 与 parser 的 `chunkSize` 参数）。
+- 后端入口： [backend/main.go](backend/main.go)
+- 控制器： [backend/controllers/](backend/controllers)
+- 服务实现（AI、解析、向量）： [backend/services/](backend/services)
+- 数据模型： [backend/models/](backend/models)
+- 前端入口： [ai-kms/](ai-kms)
+- 关键前端页面：
+  - 聊天页面： [ai-kms/src/pages/chat](ai-kms/src/pages/chat)
+  - 知识库管理： [ai-kms/src/pages/kb](ai-kms/src/pages/kb)
+  - 登录： [ai-kms/src/pages/login/index.tsx](ai-kms/src/pages/login/index.tsx)
+  - 用户管理： [ai-kms/src/pages/userManage](ai-kms/src/pages/userManage)
 
+## 实现细节与注意点
 
+- 文档解析：`backend/services/parser_service.go` 支持 `.txt`、`.docx`、`.pdf`，按 `kb.ChunkSize` 切片并异步向量化。
+- 向量化：`backend/services/ai_service.go` 封装对外部 embedding 与 chat API 的调用，初始化依赖环境变量。
+- 相似度搜索：`backend/services/vector_service.go` 使用余弦相似度筛选高于 0.4 的 chunk，返回 top-3 作为背景知识与来源。
+- 文件去重：上传时计算 MD5 并在同一知识库内检查重复，若重复则直接返回已有记录。
+
+## 已知限制
+
+- 部分特殊 PDF/Docx 的解析可能失败或丢失格式化信息。
+- embedding 与 chat 依赖外部服务，可能产生成本与速率限制，请在生产使用前评估。
+- 后端已修改为从环境变量读取数据库连接（`DB_USER`/`DB_PASS`/`DB_HOST`/`DB_PORT`/`DB_NAME`），代码仍提供默认回退用于本地开发。请在生产环境中使用安全凭证或 secret 管理机制。
+
+## 下一步建议
+
+- 若需要，我可以：
+  - 将 README 增加部署（Docker / docker-compose）示例；
+  - 把 DB 配置改为读取环境变量并提交 PR；
+  - 自动生成 API 文档快照（Swagger UI 已挂载于 `/swagger`）；
+
+如需我马上把 README 更新为你指定的格式（更简短或更详尽），告诉我偏好即可。

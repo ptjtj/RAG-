@@ -1,5 +1,5 @@
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
-import { request } from '@umijs/max';
+import { postLogin } from '@/services/api/renzhengAuth'; 
 import { Button, Form, Input, message } from 'antd';
 
 
@@ -8,10 +8,7 @@ export default function Login() {
 
   const handleFinish = async (values: any) => {
     try {
-      const res = await request('/login', {
-        method: 'POST',
-        data: values,
-      });
+      const res = await postLogin(values);
 
       if (res.code === 200 && res.data?.accessToken) {
         
@@ -26,8 +23,11 @@ export default function Login() {
       } else {
         message.error(res.message || '登录失败');
       }
-    } catch (error) {
-      message.error('网络请求失败，请检查后端服务');
+    } catch (error:any) {
+      const errorMsg =
+        error?.response?.data?.message ||
+        '网络请求失败，请检查账号密码或后端服务';
+      message.error(errorMsg);
     }
   };
 

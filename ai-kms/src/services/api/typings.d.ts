@@ -26,6 +26,11 @@ declare namespace API {
     updatedAt?: string;
   };
 
+  type LoginRequest = {
+    password: string;
+    username: string;
+  };
+
   type RefreshRequest = {
     refresh_token: string;
   };

@@ -21,8 +21,10 @@ import (
 // @host localhost:8080
 // @BasePath /api/v1
 func main() {
-	// 1. 初始化数据库及基础数据
+	// 初始化数据库及基础数据
 	config.InitDB()
+
+	config.InitSeedData()
 	//点火 AI 引擎
 	services.InitAI()
 
@@ -34,8 +36,10 @@ func main() {
 		fmt.Printf("测试向量提取，成功获取到 %d 维度的浮点数，前三个数字是: %v (错误: %v)\n", len(vec), vec[:3], err)
 	}
 	r := gin.Default()
-	r.Use(middlewares.Cors()) // 挂载中间件
-
+	// 挂载中间件
+	r.Use(middlewares.Cors())
+	// ：配置静态文件访问 这样当访问 /uploads 时，Gin 会去本地文件夹 ./uploads 找文件
+	r.Static("/uploads", "./uploads")
 	// 注册 Swagger
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
@@ -45,22 +49,32 @@ func main() {
 		// 预留给未来的登录接口
 		public.POST("/login", controllers.Login)
 		public.POST("/refresh", controllers.RefreshToken)
+
+		public.POST("/register", controllers.Register)
 	}
 
 	protected := r.Group("/api/v1")
 	protected.Use(middlewares.JWTAuth())
 	{
+		protected.GET("/users", controllers.GetUserList)
+		// ==== 个人中心 ====
+		protected.PUT("/user/password", controllers.UpdatePassword)
+		protected.POST("/user/avatar", controllers.UploadAvatar)
+		protected.DELETE("/user/avatar", controllers.ClearAvatar)
+		protected.PUT("/user/username", controllers.UpdateUsername)
+		// ==== 知识库管理 ====
 		protected.GET("/kb", controllers.GetKnowledgeBases)
 		protected.POST("/kb", controllers.CreateKnowledgeBase)
 		protected.DELETE("/kb/:id", controllers.DeleteKnowledgeBase)
 		protected.GET("/kb/:kb_id/docs", controllers.GetDocuments)
 		protected.POST("/kb/:kb_id/upload", controllers.UploadDocument)
+		// ==== 智能对话 ====
 		protected.POST("/chat", controllers.SimpleChat)
-		//会话历史路由
 		protected.GET("/sessions", controllers.GetSessions)
 		protected.POST("/sessions", controllers.CreateSession)
 		protected.GET("/sessions/:id/messages", controllers.GetSessionMessages)
 		protected.DELETE("/sessions/:id", controllers.DeleteSession)
+		// ==== 测试接口 ====
 		protected.POST("/test-embedding", controllers.TestEmbedding)
 		//注册删除文档的路由
 		protected.DELETE("/docs/:doc_id", controllers.DeleteDocument)

@@ -2,6 +2,7 @@ import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { request } from '@umijs/max';
 import { Button, Form, Input, message } from 'antd';
 
+
 export default function Login() {
   const [form] = Form.useForm();
 
@@ -12,10 +13,13 @@ export default function Login() {
         data: values,
       });
 
-      if (res.code === 200 && res.data?.token) {
+      if (res.code === 200 && res.data?.accessToken) {
         
         localStorage.setItem('accessToken', res.data.accessToken);
         localStorage.setItem('refreshToken',res.data.refreshToken);
+        if(res.data.user){
+          localStorage.setItem('user',JSON.stringify(res.data.user));
+        }
         message.success('登录成功，欢迎回来！');
         // 带着令牌跳转
         window.location.href = '/chat';

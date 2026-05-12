@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"backend/config"
+	"backend/middlewares"
 	"backend/models"
 	"fmt"
 	"net/http"
@@ -20,21 +22,6 @@ type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
-func generateToken(username string, expireDuration time.Duration) (string, error) {
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		return "", fmt.Errorf("服务器未配置JWT密码")
-	}
-	claims := jwt.MapClaims{
-		"username": username,
-		"exp":      time.Now().Add(expireDuration).Unix(),
-		"role":     "admin",
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(jwtSecret))
-
-}
-
 // 登录
 func Login(c *gin.Context) {
 	var req LoginRequest
@@ -42,34 +29,55 @@ func Login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, models.Response{Code: 400, Message: "参数错误"})
 		return
 	}
-	if req.Username != "admin" || req.Password != "123456" {
+
+	var user models.User
+	result := config.DB.Where("username = ?", req.Username).First(&user)
+
+	if result.Error != nil {
+		// 数据库没查到该用户，检查是否是空库初始状态
+		c.JSON(http.StatusUnauthorized, models.Response{Code: 401, Message: "账号不存在或密码错误"})
+		return
+
+	}
+
+	if user.Password != req.Password {
 		c.JSON(http.StatusUnauthorized, models.Response{Code: 401, Message: "账号或密码错误"})
 		return
 	}
-	//2 小时过期的短令牌 (Access Token)
-	accessToken, err := generateToken(req.Username, 2*time.Hour)
+
+	// 签发 2 小时过期的短令牌 (Access Token)
+	accessToken, err := middlewares.GenerateToken(user.Username, 2*time.Hour)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "生成 Access Token 失败"})
 		return
 	}
-	//生成一个 3 天过期的长令牌 (Refresh Token)
-	refreshToken, err := generateToken(req.Username, 72*time.Hour)
+
+	// 签发 3 天过期的长令牌 (Refresh Token)
+	refreshToken, err := middlewares.GenerateToken(user.Username, 72*time.Hour)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "生成 Refresh Token 失败"})
 		return
 	}
-	// 将 Token 返回给前端
 	c.JSON(http.StatusOK, models.Response{
 		Code:    200,
 		Message: "登录成功",
-		Data: map[string]string{
+		Data: map[string]interface{}{
 			"accessToken":  accessToken,
 			"refreshToken": refreshToken,
+			"user":         user, // 把用户数据一并返回给前端
 		},
 	})
 }
 
+// @Description 使用长令牌换取新的短令牌
+// @Tags 认证 (Auth)
+// @Accept json
+// @Produce json
+// @Param data body RefreshRequest true "刷新参数"
+// @Success 200 {object} models.Response "成功"
+// @Router /refresh [post]
 // 刷新令牌专用接口
+// @Summary 刷新 Access Token
 func RefreshToken(c *gin.Context) {
 	var req RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -96,7 +104,7 @@ func RefreshToken(c *gin.Context) {
 	}
 	username := claims["username"].(string)
 	//长令牌合法,立刻为该用户签发一个全新的 2 小时短令牌
-	newAccessToken, err := generateToken(username, 2*time.Hour)
+	newAccessToken, err := middlewares.GenerateToken(username, 2*time.Hour)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "刷新 Token 失败"})
 		return

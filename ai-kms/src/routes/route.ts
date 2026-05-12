@@ -1,8 +1,7 @@
 const routes = [
   {
-    path:'/',
-    redirect:'/chat'
-
+    path: '/',
+    redirect: '/chat',
   },
   {
     path: '/login',
@@ -13,13 +12,16 @@ const routes = [
     name: '智能问答',
     path: '/chat',
     component: './chat',
-    
   },
   {
     name: '知识库管理',
     path: '/kb',
     component: './kb',
-    
+  },
+  {
+    name: '用户管理',
+    path: '/userManage',
+    component: './userManage',
   },
 ];
 

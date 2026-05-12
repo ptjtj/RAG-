@@ -11,7 +11,7 @@ export default function ChatPage() {
   const [isSidebarLoading, setIsSidebarLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const createLockRef = useRef(false);
-  const [messageApi, messageContextHolder] = message.useMessage(); 
+  const [messageApi, messageContextHolder] = message.useMessage();
   const [modalApi, modalContextHolder] = Modal.useModal();
 
   // 获取会话列表
@@ -96,12 +96,14 @@ export default function ChatPage() {
         onCreateSession={handleCreateSession}
         isCreating={isCreating}
         onDeleteSession={handleDeleteSession}
+       
       />
 
       <ChatBox
         currentSessionId={currentSessionId}
         onRefreshSessions={fetchSessions}
       />
+     
     </Layout>
   );
 }

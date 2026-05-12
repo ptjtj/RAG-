@@ -2,9 +2,12 @@ import {
   PlusOutlined,
   MessageOutlined,
   DeleteOutlined,
+  UserOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
-import { Button,Layout,List,Spin } from "antd";
+import { Button,Layout,List,Spin,Avatar } from "antd";
 import React from "react";
+
 
 const {Sider}=Layout;
 interface ChatSidebarProps {
@@ -23,7 +26,7 @@ export default function ChatSidebar({
   onSelectSession,
   onCreateSession,
   isCreating,
-  onDeleteSession
+  onDeleteSession,
 }:ChatSidebarProps) {
     return (
       <Sider
@@ -62,7 +65,11 @@ export default function ChatSidebar({
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center truncate flex-1 pr-2">
                       <MessageOutlined
-                        className={`mr-3 text-base flex-shrink-0 ${currentSessionId===item.id ? 'texy-[#1f1f1f]' : 'opacity-60'}`}
+                        className={`mr-3 text-base flex-shrink-0 ${
+                          currentSessionId === item.id
+                            ? 'texy-[#1f1f1f]'
+                            : 'opacity-60'
+                        }`}
                       />
                       <span className="truncate text-sm">{item.title}</span>
                     </div>
@@ -82,6 +89,7 @@ export default function ChatSidebar({
             />
           </Spin>
         </div>
+      
       </Sider>
     );
 };

@@ -26,9 +26,27 @@ declare namespace API {
     updatedAt?: string;
   };
 
+  type RefreshRequest = {
+    refresh_token: string;
+  };
+
+  type RegisterRequest = {
+    password: string;
+    username: string;
+  };
+
   type Response = {
     code?: number;
     data?: any;
     message?: string;
+  };
+
+  type UpdatePasswordRequest = {
+    newPassword: string;
+    oldPassword: string;
+  };
+
+  type UpdateUsernameRequest = {
+    newUsername: string;
   };
 }

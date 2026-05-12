@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -37,8 +38,28 @@ func JWTAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		//把解析出来的 username 存入上下文，方便后面的控制器直接使用
+		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+			if username, ok := claims["username"].(string); ok {
+				c.Set("username", username)
+			}
+		}
 		// 校验通过，放行请求到下一个处理函数
 		c.Next()
 	}
+}
 
+// 生成 Token 的公共函数
+// GenerateToken 生成 JWT 令牌
+func GenerateToken(username string, expiration time.Duration) (string, error) {
+	jwtSecret := os.Getenv("JWT_SECRET")
+	jwtKey := []byte(jwtSecret)
+	// 设置 Token 的 Payload (载荷)
+	claims := jwt.MapClaims{
+		"username": username,
+		"exp":      time.Now().Add(expiration).Unix(), // 过期时间
+		"iat":      time.Now().Unix(),                 // 签发时间
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(jwtKey)
 }

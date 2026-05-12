@@ -4,7 +4,11 @@
 // API 唯一标识：
 import * as document from './document';
 import * as knowledgeBase from './knowledgeBase';
+import * as renzhengAuth from './renzhengAuth';
+import * as yonghuUser from './yonghuUser';
 export default {
   document,
   knowledgeBase,
+  renzhengAuth,
+  yonghuUser,
 };

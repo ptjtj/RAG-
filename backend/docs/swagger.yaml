@@ -1,5 +1,44 @@
 basePath: /api/v1
 definitions:
+  controllers.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  controllers.RegisterRequest:
+    properties:
+      password:
+        example: "123456"
+        type: string
+      username:
+        example: new_user
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  controllers.UpdatePasswordRequest:
+    properties:
+      newPassword:
+        example: "654321"
+        type: string
+      oldPassword:
+        example: "123456"
+        type: string
+    required:
+    - newPassword
+    - oldPassword
+    type: object
+  controllers.UpdateUsernameRequest:
+    properties:
+      newUsername:
+        example: super_admin
+        type: string
+    required:
+    - newUsername
+    type: object
   models.CreateKBRequest:
     properties:
       chunkSize:
@@ -135,4 +174,152 @@ paths:
       summary: 删除知识库
       tags:
       - KnowledgeBase
+  /refresh:
+    post:
+      consumes:
+      - application/json
+      description: 使用长令牌换取新的短令牌
+      parameters:
+      - description: 刷新参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: 刷新 Access Token
+      tags:
+      - 认证 (Auth)
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: 管理员在后台添加新用户
+      parameters:
+      - description: 注册参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: 注册新用户 (添加用户)
+      tags:
+      - 认证 (Auth)
+  /user/avatar:
+    delete:
+      consumes:
+      - application/json
+      description: 将当前登录用户的头像字段清空为默认状态
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/models.Response'
+      security:
+      - BearerAuth: []
+      summary: 移除当前用户头像
+      tags:
+      - 用户 (User)
+    post:
+      consumes:
+      - multipart/form-data
+      description: 接收前端传来的图片文件，保存到本地并更新数据库中的头像 URL
+      parameters:
+      - description: 头像图片文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/models.Response'
+      security:
+      - BearerAuth: []
+      summary: 上传用户头像
+      tags:
+      - 用户 (User)
+  /user/password:
+    put:
+      consumes:
+      - application/json
+      description: 验证旧密码并更新为新密码，更新后需要重新登录
+      parameters:
+      - description: 修改密码的参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.UpdatePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/models.Response'
+      security:
+      - BearerAuth: []
+      summary: 修改当前用户密码
+      tags:
+      - 用户 (User)
+  /user/username:
+    put:
+      consumes:
+      - application/json
+      description: 修改用户名后，JWT 令牌会失效，前端需要强制重新登录
+      parameters:
+      - description: 修改用户名的参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.UpdateUsernameRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/models.Response'
+      security:
+      - BearerAuth: []
+      summary: 修改当前用户名
+      tags:
+      - 用户 (User)
+  /users:
+    get:
+      consumes:
+      - application/json
+      description: 在用户管理表格中展示所有用户
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/models.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取用户列表
+      tags:
+      - 用户 (User)
 swagger: "2.0"

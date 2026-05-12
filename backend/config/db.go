@@ -29,6 +29,7 @@ func InitDB() {
 		&models.DocumentChunk{},
 		&models.ChatSession{},
 		&models.ChatMessage{},
+		&models.User{},
 	)
 	if err != nil {
 		log.Fatal("自动建表失败: ", err)
@@ -48,5 +49,15 @@ func InitSeedData() {
 		}
 		DB.Create(&defaultKbs)
 		log.Println("数据库初始化成功：已自动为你插入 2 条示例知识库！")
+	}
+	var adminCount int64
+	DB.Model(&models.User{}).Where("username = ?", "admin").Count(&adminCount)
+	if adminCount == 0 {
+		adminUser := models.User{
+			Username: "admin",
+			Password: "123456",
+		}
+		DB.Create(&adminUser)
+		log.Println("检测到数据库无用户，已自动在 MySQL 中创建默认管理员: admin / 123456")
 	}
 }

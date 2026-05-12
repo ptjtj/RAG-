@@ -15,6 +15,11 @@ declare namespace API {
     id: number;
   };
 
+  type deleteUsersIdParams = {
+    /** 要删除的用户ID */
+    id: number;
+  };
+
   type KnowledgeBase = {
     chunkSize?: number;
     createdAt?: string;

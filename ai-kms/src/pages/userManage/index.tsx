@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { getUsers } from '@/services/api/yonghuUser';
+import { getUsers,deleteUsersId } from '@/services/api/yonghuUser';
 import { PlusOutlined, UserOutlined } from '@ant-design/icons';
-import { Avatar, Button, Card, message, Table, Tag } from 'antd';
+import { Avatar, Button, Card, message, Table, Tag, Popconfirm } from 'antd';
 import AddUserModal from './components/addUserModal';
 
 
@@ -22,7 +22,7 @@ export default function UserManage() {
         messageApi.error(res.message || '获取用户列表失败');
       }
     } catch (error:any) {
-      if(error?.respose?.status===401){
+      if(error?.response?.status===401){
         messageApi.error('登录状态已过期，请重新登录！');
         setTimeout(() => {
           localStorage.clear();
@@ -39,6 +39,21 @@ export default function UserManage() {
     fetchUsers();
   }, []);
 
+const handleDelete=async (id:number)=>{
+  try{
+    const res=await deleteUsersId({id});
+    if(res.code===200){
+      messageApi.success('用户已删除！');
+      fetchUsers();
+    }else{
+      messageApi.error(res.message || '删除失败');
+    }
+  }
+  catch(error) {
+    messageApi.error('网络请求错误');
+  }
+}
+
   //表格列配置
   const columns = [
     {
@@ -48,9 +63,9 @@ export default function UserManage() {
       width: 80,
       render: (avatar: string) => (
         <Avatar
-          src={avatar}
+          src={avatar || undefined}
           icon={<UserOutlined />}
-          className="shadow-sm border border-gray-100"
+          className="shadow-sm border border-gray-100 bg-blue-500"
         />
       ),
     },
@@ -74,16 +89,32 @@ export default function UserManage() {
       },
     },
     {
-      title: '创建时间',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      render: (time: string) => (
-        <span className="text-gray-400">
-          {time
-            ? new Date(time).toLocaleString('zh-CN', { hour12: false })
-            : '-'}
-        </span>
-      ),
+      title: '操作',
+      key: 'action',
+      render: (_: any, record: any) => {
+        if (record.username === 'admin') {
+          return (
+            <span className="text-gray-300 text-sm cursor-not-allowed">
+              不可操作
+            </span>
+          );
+        }
+        return (
+          <Popconfirm
+            title="永久删除用户"
+            description={`确定要删除账号 "${record.username}" 吗？此操作不可恢复。`}
+            onConfirm={() => handleDelete(record.id)}
+            okText="确定删除"
+            okButtonProps={{ danger: true }}
+            cancelText="取消"
+            placement="topRight"
+          >
+            <Button type="link" danger size="small" className="p-0">
+              删除
+            </Button>
+          </Popconfirm>
+        );
+      },
     },
   ];
 

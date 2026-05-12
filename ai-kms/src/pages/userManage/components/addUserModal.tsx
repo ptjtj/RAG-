@@ -32,7 +32,7 @@ try{
 }
 }
     return (
-        // 弹窗
+      // 弹窗
       <Modal
         title={<div className="text-lg font-medium">新增系统用户</div>}
         open={open}
@@ -44,29 +44,39 @@ try{
         <div className="pt-4">
           <Form form={form} layout="vertical" onFinish={handleAddUser}>
             <Form.Item
-            name="username"
-            label="登录账号 (姓名)"
-            rules={[
-              { required: true, message: '请输入账号' },
-              { min: 2, message: '账号长度至少 2 位' },
-            ]}
-          >
-            <Input prefix={<UserOutlined className="text-gray-400" />} placeholder="请输入新用户的登录账号" size="large" />
-          </Form.Item>
+              name="username"
+              label="登录账号 (姓名)"
+              rules={[
+                { required: true, message: '请输入账号' },
+                { min: 2, message: '账号长度至少 2 位' },
+              ]}
+            >
+              <Input
+                prefix={<UserOutlined className="text-gray-400" />}
+                placeholder="请输入新用户的登录账号"
+                size="large"
+              />
+            </Form.Item>
 
             <Form.Item
-            name="password"
-            label="初始密码"
-            rules={[
-              { required: true, message: '请输入初始密码' },
-              { min: 6, message: '密码不能少于 6 位' },
-            ]}
+              name="password"
+              label="初始密码"
+              rules={[
+                { required: true, message: '请输入初始密码' },
+                { min: 6, message: '密码不能少于 6 位' },
+              ]}
             >
               <Input.Password placeholder="请输入至少6位的密码" size="large" />
-              <Button type="primary" htmlType="submit" block size="large" className="mt-4 rounded-lg">
-                确认添加
-              </Button>
             </Form.Item>
+            <Button
+              type="primary"
+              htmlType="submit"
+              block
+              size="large"
+              className="mt-4 rounded-lg"
+            >
+              确认添加
+            </Button>
           </Form>
         </div>
       </Modal>

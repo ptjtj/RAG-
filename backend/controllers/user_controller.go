@@ -275,3 +275,34 @@ func GetUserList(c *gin.Context) {
 		Data:    users,
 	})
 }
+
+// DeleteUser 删除指定用户
+// @Summary 删除用户
+// @Description 管理员在后台删除指定用户，超级管理员(admin)不能被删除
+// @Tags 用户 (User)
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "要删除的用户ID"
+// @Success 200 {object} models.Response "成功"
+// @Router /users/{id} [delete]
+func DeleteUser(c *gin.Context) {
+	id := c.Param("id")
+	//先查询这个用户存不存在
+	var user models.User
+	if err := config.DB.First(&user, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, models.Response{Code: 404, Message: "用户不存在"})
+		return
+	}
+	//绝对不允许删除 admin！
+	if user.Username == "admin" {
+		c.JSON(http.StatusForbidden, models.Response{Code: 403, Message: "超级管理员账号禁止删除！"})
+		return
+	}
+	// 执行删除操作
+	if err := config.DB.Delete(&models.User{}, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "删除失败"})
+		return
+	}
+	c.JSON(http.StatusOK, models.Response{Code: 200, Message: "删除成功"})
+}

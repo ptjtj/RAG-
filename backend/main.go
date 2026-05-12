@@ -57,6 +57,7 @@ func main() {
 	protected.Use(middlewares.JWTAuth())
 	{
 		protected.GET("/users", controllers.GetUserList)
+		protected.DELETE("/users/:id", controllers.DeleteUser)
 		// ==== 个人中心 ====
 		protected.PUT("/user/password", controllers.UpdatePassword)
 		protected.POST("/user/avatar", controllers.UploadAvatar)

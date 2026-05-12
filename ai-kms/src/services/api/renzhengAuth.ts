@@ -23,7 +23,7 @@ export async function postRefresh(
   options?: { [key: string]: any },
 ) {
   return request<API.Response>('/refresh', {
-    method:'POST',
+    method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },

@@ -86,3 +86,17 @@ export async function getUsers(options?: { [key: string]: any }) {
     ...(options || {}),
   });
 }
+
+/** 删除用户 管理员在后台删除指定用户，超级管理员(admin)不能被删除 DELETE /users/${param0} */
+export async function deleteUsersId(
+  // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
+  params: API.deleteUsersIdParams,
+  options?: { [key: string]: any },
+) {
+  const { id: param0, ...queryParams } = params;
+  return request<API.Response>(`/users/${param0}`, {
+    method: 'DELETE',
+    params: { ...queryParams },
+    ...(options || {}),
+  });
+}

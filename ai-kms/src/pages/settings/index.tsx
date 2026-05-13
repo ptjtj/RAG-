@@ -87,7 +87,7 @@ export default function Settings() {
           icon: <CheckCircleFilled className="text-green-500" />,
         });
 
-        // 3. 同步“原始数据”，让“取消”按钮失效或基于新数据回滚
+        // 同步原始数据，让取消按钮失效或基于新数据回滚
         setOriginalConfigs(JSON.parse(JSON.stringify(configs)));
       } else {
         message.error(res.message || '批量保存失败');

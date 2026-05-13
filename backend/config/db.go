@@ -54,6 +54,7 @@ func InitDB() {
 		&models.ChatSession{},
 		&models.ChatMessage{},
 		&models.User{},
+		&models.SysConfig{},
 	)
 	if err != nil {
 		log.Fatal("自动建表失败: ", err)
@@ -83,5 +84,24 @@ func InitSeedData() {
 		}
 		DB.Create(&adminUser)
 		log.Println("检测到数据库无用户，已自动在 MySQL 中创建默认管理员: admin / 123456")
+	}
+	var configCount int64
+	DB.Model(&models.SysConfig{}).Count(&configCount)
+	if configCount == 0 {
+		// 从原本的 .env 文件中读取旧的 Key 作为初始值
+		zhipuKey := os.Getenv("ZHIPU_API_KEY")
+		deepseekKey := os.Getenv("DEEPSEEK_API_KEY")
+		configs := []models.SysConfig{
+			{ConfigKey: "llm_model_name", ConfigValue: "glm-4", Description: "当前使用的默认模型名称"},
+			{ConfigKey: "llm_api_key", ConfigValue: zhipuKey, Description: "默认大模型 API Key (当前为智谱)"},
+			{ConfigKey: "deepseek_api_key", ConfigValue: deepseekKey, Description: "DeepSeek 备用 API Key"},
+			{ConfigKey: "llm_temperature", ConfigValue: "0.7", Description: "模型随机性 (0-1)"},
+		}
+		if err := DB.Create(&configs).Error; err != nil {
+			log.Printf("初始化系统配置失败: %v", err)
+		} else {
+			log.Println("系统配置初始化成功！")
+		}
+
 	}
 }

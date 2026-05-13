@@ -87,6 +87,8 @@ definitions:
       message:
         type: string
     type: object
+  models.SysConfig:
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -94,6 +96,59 @@ info:
   title: AI 知识库管理平台 API
   version: "1.0"
 paths:
+  /configs:
+    get:
+      description: 获取系统大模型API Key等动态配置
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取所有系统配置项
+      tags:
+      - 系统配置
+    put:
+      description: 修改指定的系统配置项的值
+      parameters:
+      - description: 配置内容
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.SysConfig'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新单个系统配置
+      tags:
+      - 系统配置
+  /configs/batch:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 配置列表
+        in: body
+        name: data
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/models.SysConfig'
+          type: array
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: 批量更新系统配置
+      tags:
+      - 系统配置
   /docs/{doc_id}:
     delete:
       description: 删除文档记录、关联的切片数据以及本地物理文件

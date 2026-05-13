@@ -15,6 +15,93 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/configs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取系统大模型API Key等动态配置",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统配置"
+                ],
+                "summary": "获取所有系统配置项",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "修改指定的系统配置项的值",
+                "tags": [
+                    "系统配置"
+                ],
+                "summary": "更新单个系统配置",
+                "parameters": [
+                    {
+                        "description": "配置内容",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.SysConfig"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/configs/batch": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统配置"
+                ],
+                "summary": "批量更新系统配置",
+                "parameters": [
+                    {
+                        "description": "配置列表",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.SysConfig"
+                            }
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
         "/docs/{doc_id}": {
             "delete": {
                 "description": "删除文档记录、关联的切片数据以及本地物理文件",
@@ -610,6 +697,9 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "models.SysConfig": {
+            "type": "object"
         }
     }
 }`

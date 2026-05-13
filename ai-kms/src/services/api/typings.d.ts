@@ -51,6 +51,8 @@ declare namespace API {
     message?: string;
   };
 
+  type SysConfig = true;
+
   type UpdatePasswordRequest = {
     newPassword: string;
     oldPassword: string;

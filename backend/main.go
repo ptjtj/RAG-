@@ -9,9 +9,12 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+)
 
+import (
 	_ "backend/docs"
 )
 
@@ -21,6 +24,10 @@ import (
 // @host localhost:8080
 // @BasePath /api/v1
 func main() {
+
+	if err := godotenv.Load(); err != nil {
+		log.Println("⚠️ 警告: 未找到 .env 文件，将尝试使用系统环境变量")
+	}
 	// 初始化数据库及基础数据
 	config.InitDB()
 
@@ -75,6 +82,10 @@ func main() {
 		protected.POST("/sessions", controllers.CreateSession)
 		protected.GET("/sessions/:id/messages", controllers.GetSessionMessages)
 		protected.DELETE("/sessions/:id", controllers.DeleteSession)
+		// ==== 系统配置 ====
+		protected.GET("/configs", controllers.GetConfigs)
+		protected.PUT("/configs", controllers.UpdateConfig)
+		protected.POST("/configs/batch", controllers.BatchUpdateConfigs)
 		// ==== 测试接口 ====
 		protected.POST("/test-embedding", controllers.TestEmbedding)
 		//注册删除文档的路由

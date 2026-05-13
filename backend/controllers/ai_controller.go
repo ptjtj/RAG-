@@ -4,10 +4,13 @@ import (
 	"backend/config"
 	"backend/models"
 	"backend/services"
+	"context"
+
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sashabaranov/go-openai"
 )
 
 // ChatRequest 接收前端提问的结构体
@@ -72,12 +75,34 @@ func SimpleChat(c *gin.Context) {
 %s`, contextStr, userMsg)
 	}
 
-	// 把问题发给 DeepSeek
-	answer, err := services.TestChat(finalPrompt)
+	modelName := services.GetSysConfig("llm_model_name")
+	if modelName == "" {
+		modelName = "deepseek-chat" // 兜底默认值
+	}
+
+	client, err := services.GetChatClint()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "系统未配置大模型 API Key，请联系管理员配置"})
+		return
+	}
+	//组装大模型请求参数
+	chatReq := openai.ChatCompletionRequest{
+		Model: modelName,
+		Messages: []openai.ChatCompletionMessage{
+			{
+				Role:    openai.ChatMessageRoleUser,
+				Content: finalPrompt,
+			},
+		},
+	}
+	resp, err := client.CreateChatCompletion(context.Background(), chatReq)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "AI 请求失败: " + err.Error()})
 		return
 	}
+	// 提取 AI 的回答文本
+	answer := resp.Choices[0].Message.Content
+
 	// =================  把 AI 的回答存进数据库 =================
 	if req.SessionID > 0 && answer != "" {
 		aiMsg := models.ChatMessage{

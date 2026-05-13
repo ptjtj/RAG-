@@ -23,6 +23,11 @@ const routes = [
     path: '/userManage',
     component: './userManage',
   },
+  {
+    name: '系统设置',
+    path: '/settings',
+    component: './settings',
+  },
 ];
 
 export default routes;

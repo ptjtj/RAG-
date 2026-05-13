@@ -22,7 +22,7 @@ ai-knowledgeStock 是一个带前端控制台与 Go 后端的 AI 知识库示例
 - Go 1.20+
 - Node.js 18+/pnpm（前端）
 - MySQL 可用并能创建数据库（默认 DSN 在 `backend/config/db.go` 指向 `ai_kms`）
-- 可选：DeepSeek / 智谱 等外部 AI Key（详见下文）
+- 可选：DeepSeek / 智谱 等外部 AI Key
 
 ## 快速运行（本地）
 
@@ -81,22 +81,7 @@ go run main.go
 DB_USER=root DB_PASS=123456 DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=ai_kms go run backend/main.go
 ```
 
-## 后端与 API 概览
 
-- 登录与用户（示例）: `POST /api/v1/login`、`POST /api/v1/register`（公共）；大部分管理接口受 JWT 保护。
-- 知识库：
-  - `GET /api/v1/kb` 列表
-  - `POST /api/v1/kb` 创建
-  - `DELETE /api/v1/kb/:id` 删除
-- 文档：
-  - `GET /api/v1/kb/:kb_id/docs`
-  - `POST /api/v1/kb/:kb_id/upload`（表单上传 `file` 字段）
-  - `DELETE /api/v1/docs/:doc_id` 删除文档及其切片
-- 聊天与会话：
-  - `POST /api/v1/chat`（接受 `message`, 可选 `kbId` 与 `sessionId`）
-  - `GET /api/v1/sessions` / `POST /api/v1/sessions` / `DELETE /api/v1/sessions/:id`
-  - `GET /api/v1/sessions/:id/messages` 获取会话历史
-- 测试 embedding：`POST /api/v1/test-embedding` （body `{text}`）
 
 ## 代码位置（快速导航）
 
@@ -112,23 +97,17 @@ DB_USER=root DB_PASS=123456 DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=ai_kms go run
   - 用户管理： [ai-kms/src/pages/userManage](ai-kms/src/pages/userManage)
 
 ## 实现细节与注意点
-
 - 文档解析：`backend/services/parser_service.go` 支持 `.txt`、`.docx`、`.pdf`，按 `kb.ChunkSize` 切片并异步向量化。
 - 向量化：`backend/services/ai_service.go` 封装对外部 embedding 与 chat API 的调用，初始化依赖环境变量。
 - 相似度搜索：`backend/services/vector_service.go` 使用余弦相似度筛选高于 0.4 的 chunk，返回 top-3 作为背景知识与来源。
 - 文件去重：上传时计算 MD5 并在同一知识库内检查重复，若重复则直接返回已有记录。
+## ⚠️ 版权与许可声明 / License
 
-## 已知限制
+本项目采用**自定义的严格版权协议**，保留所有权利（All Rights Reserved）。
 
-- 部分特殊 PDF/Docx 的解析可能失败或丢失格式化信息。
-- embedding 与 chat 依赖外部服务，可能产生成本与速率限制，请在生产使用前评估。
-- 后端已修改为从环境变量读取数据库连接（`DB_USER`/`DB_PASS`/`DB_HOST`/`DB_PORT`/`DB_NAME`），代码仍提供默认回退用于本地开发。请在生产环境中使用安全凭证或 secret 管理机制。
+**🔴 严禁任何形式的商业用途！**
+允许个人学习和研究使用。未经书面授权，禁止将本项目用于任何商业盈利、企业级生产环境或闭源二次开发。具体条款请务必参阅项目根目录下的 [LICENSE](./LICENSE) 文件。
 
-## 下一步建议
 
-- 若需要，我可以：
-  - 将 README 增加部署（Docker / docker-compose）示例；
-  - 把 DB 配置改为读取环境变量并提交 PR；
-  - 自动生成 API 文档快照（Swagger UI 已挂载于 `/swagger`）；
 
-如需我马上把 README 更新为你指定的格式（更简短或更详尽），告诉我偏好即可。
+

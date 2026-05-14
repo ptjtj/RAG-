@@ -97,7 +97,9 @@ func SimpleChat(c *gin.Context) {
 	}
 	resp, err := client.CreateChatCompletion(context.Background(), chatReq)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "AI 请求失败: " + err.Error()})
+		c.JSON(http.StatusOK, models.Response{
+			Code:    400,
+			Message: "大模型拒绝了访问，请前往【系统设置】检查 API Key 是否填对！底层报错: " + err.Error()})
 		return
 	}
 	// 提取 AI 的回答文本

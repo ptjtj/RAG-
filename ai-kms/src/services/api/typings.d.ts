@@ -36,6 +36,11 @@ declare namespace API {
     username: string;
   };
 
+  type putKbIdParams = {
+    /** 知识库 ID */
+    id: number;
+  };
+
   type RefreshRequest = {
     refresh_token: string;
   };
@@ -52,6 +57,11 @@ declare namespace API {
   };
 
   type SysConfig = true;
+
+  type UpdateKBRequest = {
+    description?: string;
+    name: string;
+  };
 
   type UpdatePasswordRequest = {
     newPassword: string;

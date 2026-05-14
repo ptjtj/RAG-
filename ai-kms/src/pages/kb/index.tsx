@@ -22,15 +22,23 @@ import {
   Spin,
   Tag,
   Typography,
+  Form,
+  Input,
+  Modal,
 } from 'antd';
 import { useEffect, useState } from 'react';
 import CreateKbModal from './components/CreateKbModal';
 import KbDetailDrawer from './components/KbDetailDrawer';
 import { formatTime } from '@/utils/format';
+import { putKbId } from '@/services/api/knowledgeBase';
 
 const { Paragraph } = Typography;
 
 export default function KnowledgeBaseList() {
+  //用于编辑弹窗的状态和表单实例
+  const [isEditModalOpen, setIsEditModalOpen]=useState(false);
+  const [editingKbId, setEditingKbId]=useState<number | null>(null);
+  const [editForm]=Form.useForm();
   //将静态数据转换为 React 状态，这样新增和删除才会触发页面刷新
   const [kbList, setkbList] = useState<any[]>([]);
   //新建知识库弹窗
@@ -58,7 +66,7 @@ export default function KnowledgeBaseList() {
     fetchKbs();
   }, []);
   //删除接口 卡片右上角的“更多操作”下拉菜单
-  const getActionMenu = (id: number): MenuProps => ({
+  const getActionMenu = (kb: any): MenuProps => ({
     items: [
       {
         key: 'settings',
@@ -74,10 +82,19 @@ export default function KnowledgeBaseList() {
         label: <span className="text-red-500">删除知识库</span>,
       },
     ],
-    onClick: async ({ key }) => {
+    onClick: async ({ key,domEvent }) => {
+      domEvent.stopPropagation();
+      if(key==='settings'){
+        setEditingKbId(kb.id);
+        editForm.setFieldsValue({
+          name:kb.name,
+          description:kb.description,
+        })
+        setIsEditModalOpen(true);
+      }
       if (key === 'delete') {
         try {
-          await deleteKnowledgeBase({ id });
+          await deleteKnowledgeBase({ id:kb.id });
           message.success('已成功删除知识库');
           fetchKbs(); //删除成功后，刷新列表
         } catch (e) {
@@ -86,6 +103,19 @@ export default function KnowledgeBaseList() {
       }
     },
   });
+const handleEditSubmit=async()=>{
+  try{
+    const values=await editForm.validateFields();
+    if(!editingKbId) return;
+    await putKbId({id:editingKbId},values);
+    message.success('知识库更新成功！');
+    setIsEditModalOpen(false); //关闭弹窗
+    fetchKbs()
+  } catch(error){
+    console.log('更新验证失败', error);
+  }
+};
+
 
   return (
     <PageContainer
@@ -179,7 +209,7 @@ export default function KnowledgeBaseList() {
                   )}
 
                   <Dropdown
-                    menu={getActionMenu(kb.id)}
+                    menu={getActionMenu(kb)}
                     trigger={['click']}
                     placement="bottomRight"
                   >
@@ -210,10 +240,7 @@ export default function KnowledgeBaseList() {
                   <FileTextOutlined />
                   <span>{kb.docCount} 份文档</span>
                 </div>
-                <div>
-                  更新于{formatTime(kb.updatedAt)}
-                  
-                </div>
+                <div>更新于{formatTime(kb.updatedAt)}</div>
               </div>
             </Card>
           ))}
@@ -236,6 +263,35 @@ export default function KnowledgeBaseList() {
           }
         }}
       />
+      {/* 修改知识库的弹窗 */}
+      <Modal
+        title="空间设置"
+        open={isEditModalOpen}
+        onOk={handleEditSubmit}
+        onCancel={() => setIsEditModalOpen(false)}
+        okText="保存修改"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <Form form={editForm} layout="vertical" className="mt-4">
+          <Form.Item
+            name="name"
+            label="知识库名称"
+            rules={[{ required: true, message: '知识库名称不能为空' }]}
+          >
+            <Input placeholder="请输入知识库名称" size="large" />
+          </Form.Item>
+          <Form.Item
+          name="description"
+          label="知识库描述"
+          >
+            <Input.TextArea
+              placeholder="请输入简短的描述，用于区分不同的知识库"
+              rows={4}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
       <KbDetailDrawer
         open={drawerVisible}
         kbId={activeKb.id}

@@ -2,7 +2,7 @@
 /* eslint-disable */
 import { request } from '@umijs/max';
 
-/** 获取系统大模型API Key等动态配置 GET /configs */
+/** 获取所有系统配置项 获取系统大模型API Key等动态配置 GET /configs */
 export async function getConfigs(options?: { [key: string]: any }) {
   return request<API.Response>('/configs', {
     method: 'GET',

@@ -74,6 +74,7 @@ func main() {
 		protected.GET("/kb", controllers.GetKnowledgeBases)
 		protected.POST("/kb", controllers.CreateKnowledgeBase)
 		protected.DELETE("/kb/:id", controllers.DeleteKnowledgeBase)
+		protected.PUT("/kb/:id", controllers.UpdateKnowledgeBase)
 		protected.GET("/kb/:kb_id/docs", controllers.GetDocuments)
 		protected.POST("/kb/:kb_id/upload", controllers.UploadDocument)
 		// ==== 智能对话 ====

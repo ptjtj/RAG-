@@ -25,6 +25,25 @@ export async function creatKnowledgeBase(
   });
 }
 
+/** 更新知识库 根据 ID 修改指定知识库的名称和描述 PUT /kb/${param0} */
+export async function putKbId(
+  // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)
+  params: API.putKbIdParams,
+  body: API.UpdateKBRequest,
+  options?: { [key: string]: any },
+) {
+  const { id: param0, ...queryParams } = params;
+  return request<API.Response>(`/kb/${param0}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    params: { ...queryParams },
+    data: body,
+    ...(options || {}),
+  });
+}
+
 /** 删除知识库 根据 ID 软删除知识库记录 DELETE /kb/${param0} */
 export async function deleteKnowledgeBase(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)

@@ -1,21 +1,21 @@
-import { useEffect, useState } from 'react';
-import { Button, Input, message, Select, Slider, Spin } from 'antd';
+import { getConfigs, postConfigsBatch } from '@/services/api/xitongpeizhi';
 import {
   CheckCircleFilled,
   ControlOutlined,
   KeyOutlined,
   RubyOutlined,
 } from '@ant-design/icons';
-import { getConfigs, putConfigs,postConfigsBatch } from '@/services/api/xitongpeizhi';
+import { Button, Input, message, Select, Slider, Spin } from 'antd';
+import { useEffect, useState } from 'react';
 
+import SettingItem from './components/settingItem';
 
 export default function Settings() {
   const [configs, setConfigs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  //用于记录初始数据，方便取消回滚
   const [originalConfigs, setOriginalConfigs] = useState<any[]>([]);
-  const [isSaving, setIsSaving] = useState(false); // 全局保存的 loading 状态
-  // 定义系统必须填写的关键配置 Key
+  const [isSaving, setIsSaving] = useState(false);
+
   const requiredKeys = [
     'llm_model_name',
     'llm_api_key',
@@ -27,7 +27,7 @@ export default function Settings() {
     try {
       const res = await getConfigs();
       if (res.code === 200) {
-        const data=res.data || [];
+        const data = res.data || [];
         setConfigs(data);
         setOriginalConfigs(JSON.parse(JSON.stringify(data)));
       }
@@ -42,43 +42,64 @@ export default function Settings() {
     fetchConfigs();
   }, []);
 
-  // 监听输入框变化，只更新本地 State
   const handleValueChange = (key: string, newValue: any) => {
-    setConfigs((prev) =>{
-        const isExist=prev.some((Item)=>Item.configKey===key);
-        if(isExist){
-            return   prev.map((item) =>
-        item.configKey === key
-          ? { ...item, configValue: String(newValue) }
-          : item,
-      )
-    }
-        else{
-            return [...prev, { configKey: key, configValue: String(newValue) }];
-        }    
-  });
+    setConfigs((prev) => {
+      const isExist = prev.some((Item) => Item.configKey === key);
+      if (isExist) {
+        return prev.map((item) =>
+          item.configKey === key
+            ? { ...item, configValue: String(newValue) }
+            : item,
+        );
+      } else {
+        return [...prev, { configKey: key, configValue: String(newValue) }];
+      }
+    });
   };
-  // 提取配置值的辅助函数
+
   const getConfigValue = (key: string) => {
     return configs.find((c) => c.configKey === key)?.configValue || '';
   };
   const getConfigDesc = (key: string) => {
     return configs.find((c) => c.configKey === key)?.description || '';
   };
+
   const isAllFilled = requiredKeys.every((key) => {
     const val = getConfigValue(key);
     return val !== undefined && String(val).trim() !== '';
   });
-  //提交保存
+
   const handleSaveAll = async () => {
     setIsSaving(true);
     try {
+      //提取要保存的数据
       const configsToSave = configs
         .filter((c) => requiredKeys.includes(c.configKey))
         .map((c) => ({
           configKey: c.configKey,
           configValue: String(c.configValue).trim(),
         }));
+        //校验密钥格式
+        const dsKey = configsToSave.find(
+          (c) => c.configKey === 'deepseek_api_key',
+        )?.configValue;
+        if (dsKey && !dsKey.startsWith('sk-')){
+          message.error('DeepSeek 密钥格式错误：必须以 "sk-" 开头！');
+          setIsSaving(false);
+          return;
+        }
+        const zhipuKey = configsToSave.find(
+          (c) => c.configKey === 'llm_api_key',
+        )?.configValue;
+        if(zhipuKey && !zhipuKey.includes('.')){
+          message.error(
+            '智谱 API Key 格式错误：通常包含小数点 (.)，请检查是否复制完整！',
+          );
+          setIsSaving(false);
+          return;
+        }
+
+// 校验通过，发送请求给后端
       // @ts-ignore
       const res = await postConfigsBatch(configsToSave);
       if (res.code === 200) {
@@ -86,22 +107,18 @@ export default function Settings() {
           content: '系统配置已成功同步至数据库',
           icon: <CheckCircleFilled className="text-green-500" />,
         });
-
-        // 同步原始数据，让取消按钮失效或基于新数据回滚
         setOriginalConfigs(JSON.parse(JSON.stringify(configs)));
       } else {
         message.error(res.message || '批量保存失败');
       }
     } catch (error) {
       message.error('网络请求异常，请检查后端 API 是否正常');
-      console.error('Batch Save Error:', error);
     } finally {
       setIsSaving(false);
     }
   };
-  // 取消修改（回滚）
+
   const handleCancel = () => {
-    // 恢复为之前留底的数据
     setConfigs(JSON.parse(JSON.stringify(originalConfigs)));
     message.info('已撤销修改');
   };
@@ -129,123 +146,96 @@ export default function Settings() {
 
         {/* 白底大圆角卡片 */}
         <div className="bg-white rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] overflow-hidden">
-          {/* 默认大模型 */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-100 transition-colors hover:bg-gray-50/50">
-            <div className="flex items-center space-x-4 w-1/3">
-              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
-                <RubyOutlined className="text-xl" />
-              </div>
-              <div>
-                <div className="font-semibold text-base">默认 AI 模型</div>
-                <div className="text-xs text-gray-400 mt-0.5">
-                  {getConfigDesc('llm_model_name')}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3 w-2/3 justify-end">
-              <Select
-                value={getConfigValue('llm_model_name')}
-                onChange={(val) => handleValueChange('llm_model_name', val)}
-                className="w-48"
-                size="large"
-                options={[
-                  { value: 'deepseek-chat', label: 'DeepSeek (V3)' },
-                  { value: 'deepseek-reasoner', label: 'DeepSeek-R1 (推理)' },
-                  { value: 'glm-4', label: '智谱 GLM-4' },
-                ]}
-              />
-            </div>
-          </div>
-
-          {/* 智谱 API Key  */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-100 transition-colors hover:bg-gray-50/50">
-            <div className="flex items-center space-x-4 w-1/3">
-              <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500">
-                <KeyOutlined className="text-xl" />
-              </div>
-              <div>
-                <div className="font-semibold text-base">智谱 API Key</div>
-                <div className="text-xs text-gray-400 mt-0.5">
-                  用于文本向量化 (Embedding)
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3 w-2/3 justify-end">
-              <Input.Password
-                value={getConfigValue('llm_api_key')}
-                onChange={(e) =>
-                  handleValueChange('llm_api_key', e.target.value)
-                }
-                placeholder="sk-..."
-                className="max-w-md rounded-lg py-2"
-              />
-            </div>
-          </div>
-
-          {/* ：DeepSeek API Key  */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-100 transition-colors hover:bg-gray-50/50">
-            <div className="flex items-center space-x-4 w-1/3">
-              <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-500">
-                <KeyOutlined className="text-xl" />
-              </div>
-              <div>
-                <div className="font-semibold text-base">DeepSeek 密钥</div>
-                <div className="text-xs text-gray-400 mt-0.5">
-                  用于核心对话生成
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3 w-2/3 justify-end">
-              <Input.Password
-                value={getConfigValue('deepseek_api_key')}
-                onChange={(e) =>
-                  handleValueChange('deepseek_api_key', e.target.value)
-                }
-                placeholder="sk-..."
-                className="max-w-md rounded-lg py-2"
-              />
-            </div>
-          </div>
-
-          {/* 大模型创造力 */}
-          <div className="flex items-center justify-between p-6 transition-colors hover:bg-gray-50/50">
-            <div className="flex items-center space-x-4 w-1/3">
-              <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center text-orange-500">
-                <ControlOutlined className="text-xl" />
-              </div>
-              <div>
-                <div className="font-semibold text-base">模型创造力</div>
-                <div className="text-xs text-gray-400 mt-0.5">
-                  数值越高，回答越发散 (0.1 - 1.0)
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center space-x-5 w-2/3 justify-end">
-              <div className="flex-1 max-w-[200px]">
-                <Slider
-                  min={0.1}
-                  max={1.0}
-                  step={0.1}
-                  value={Number(getConfigValue('llm_temperature')) || 0.7}
-                  onChange={(val) => handleValueChange('llm_temperature', val)}
-                  tooltip={{ formatter: (value) => `发散度: ${value}` }}
-                />
-              </div>
-              <div className="text-gray-500 font-mono w-8 text-right">
-                {getConfigValue('llm_temperature')}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center justify-end space-x-4 p-5 bg-gray-50 border-t border-gray-100">
-          <Button
-         
-              shape="round" 
+          <SettingItem
+            icon={<RubyOutlined />}
+            iconBgClass="bg-blue-50"
+            iconColorClass="text-blue-500"
+            title="默认 AI 模型"
+            description={getConfigDesc('llm_model_name')}
+          >
+            <Select
+              value={getConfigValue('llm_model_name')}
+              onChange={(val) => handleValueChange('llm_model_name', val)}
+              className="w-48"
               size="large"
-              onClick={handleCancel}
-              className="text-gray-500 hover:text-gray-800">取消</Button>
+              options={[
+                { value: 'deepseek-chat', label: 'DeepSeek (V3)' },
+                { value: 'deepseek-reasoner', label: 'DeepSeek-R1 (推理)' },
+                { value: 'glm-4', label: '智谱 GLM-4' },
+              ]}
+            />
+          </SettingItem>
+
+          <SettingItem
+            icon={<KeyOutlined />}
+            iconBgClass="bg-indigo-50"
+            iconColorClass="text-indigo-500"
+            title="智谱 API Key"
+            description="用于文本向量化 (Embedding)"
+          >
+            <Input.Password
+              value={getConfigValue('llm_api_key')}
+              onChange={(e) => handleValueChange('llm_api_key', e.target.value)}
+              placeholder="sk-..."
+              className="max-w-md rounded-lg py-2"
+              allowClear
+            />
+          </SettingItem>
+
+          <SettingItem
+            icon={<KeyOutlined />}
+            iconBgClass="bg-purple-50"
+            iconColorClass="text-purple-500"
+            title="DeepSeek 密钥"
+            description="用于核心对话生成"
+          >
+            <Input.Password
+              value={getConfigValue('deepseek_api_key')}
+              onChange={(e) =>
+                handleValueChange('deepseek_api_key', e.target.value)
+              }
+              placeholder="sk-..."
+              className="max-w-md rounded-lg py-2"
+              allowClear
+            />
+          </SettingItem>
+
+          <SettingItem
+            icon={<ControlOutlined />}
+            iconBgClass="bg-orange-50"
+            iconColorClass="text-orange-500"
+            title="模型创造力"
+            description="数值越高，回答越发散 (0.1 - 1.0)"
+            hideBorder={true} // 最后一条隐藏底边框
+          >
+            <div className="flex-1 max-w-[200px]">
+              <Slider
+                min={0.1}
+                max={1.0}
+                step={0.1}
+                value={Number(getConfigValue('llm_temperature')) || 0.7}
+                onChange={(val) => handleValueChange('llm_temperature', val)}
+                tooltip={{ formatter: (value) => `发散度: ${value}` }}
+              />
+            </div>
+            <div className="text-gray-500 font-mono w-8 text-right">
+              {getConfigValue('llm_temperature')}
+            </div>
+          </SettingItem>
+        </div>
+
+        {/* 底部按钮区域 */}
+        <div className="flex items-center justify-end space-x-4 p-5 bg-gray-50 border-t border-gray-100 rounded-b-2xl shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
           <Button
-          type='primary'
+            shape="round"
+            size="large"
+            onClick={handleCancel}
+            className="text-gray-500 hover:text-gray-800"
+          >
+            取消
+          </Button>
+          <Button
+            type="primary"
             shape="round"
             size="large"
             disabled={!isAllFilled}
@@ -258,7 +248,6 @@ export default function Settings() {
             保存更改
           </Button>
         </div>
-
         {/* 底部版权或系统提示 */}
         <div className="text-center mt-8 text-gray-400 text-xs">
           AI-KMS System Preferences · 动态热更新架构

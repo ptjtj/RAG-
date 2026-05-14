@@ -82,3 +82,35 @@ func DeleteKnowledgeBase(c *gin.Context) {
 
 	c.JSON(http.StatusOK, models.Response{Code: 200, Message: "success"})
 }
+
+// UpdateKnowledgeBase 更新知识库信息
+// @Summary 更新知识库
+// @Description 根据 ID 修改指定知识库的名称和描述
+// @Tags KnowledgeBase
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path int true "知识库 ID"
+// @Param data body models.UpdateKBRequest true "更新参数"
+// @Success 200 {object} models.Response "更新成功"
+// @Failure 400 {object} models.Response "参数错误，名称不能为空"
+// @Failure 500 {object} models.Response "更新失败"
+// @Router /kb/{id} [put]
+func UpdateKnowledgeBase(c *gin.Context) {
+	id := c.Param("id")
+
+	var req models.UpdateKBRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.Response{Code: 400, Message: "参数错误，名称不能为空"})
+		return
+	}
+	result := config.DB.Model(&models.KnowledgeBase{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"name":        req.Name,
+		"description": req.Description,
+	})
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "更新失败"})
+		return
+	}
+	c.JSON(http.StatusOK, models.Response{Code: 200, Message: "更新成功"})
+}

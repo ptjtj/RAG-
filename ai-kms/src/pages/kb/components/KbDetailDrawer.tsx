@@ -1,6 +1,6 @@
-import { InboxOutlined, DeleteOutlined } from '@ant-design/icons';
+import { DeleteOutlined, InboxOutlined } from '@ant-design/icons';
 import { request } from '@umijs/max';
-import { Drawer, message, Table, Tag, Upload, Popconfirm,Button } from 'antd';
+import { Button, Drawer, message, Popconfirm, Table, Tag, Upload } from 'antd';
 import { useEffect, useState } from 'react';
 
 const { Dragger } = Upload;
@@ -19,7 +19,7 @@ export default function KbDetailDrawer({
   kbId,
   kbName,
   onClose,
-  onRefreshKbList
+  onRefreshKbList,
 }: KbDetailDrawerProps) {
   const [docs, setDocs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -49,7 +49,7 @@ export default function KbDetailDrawer({
     }
   }, [open, kbId]);
   //短轮询
-  useEffect(()=>{
+  useEffect(() => {
     // 检查当前列表里，是否还有状态为 'pending'（等待解析）的文
     const hasPending = docs.some((doc: any) => doc.status === 'pending');
     let timer: NodeJS.Timeout;
@@ -61,7 +61,7 @@ export default function KbDetailDrawer({
       }, 2000);
     }
     return () => clearTimeout(timer);
-  },[docs,open])
+  }, [docs, open]);
 
   // 自定义拖拽上传逻辑
   const customUpload = async (options: any) => {
@@ -71,7 +71,7 @@ export default function KbDetailDrawer({
       return;
     }
 
-    setUploading(true); 
+    setUploading(true);
     const { file, onSuccess, onError, onProgress } = options;
 
     const formData = new FormData();
@@ -88,14 +88,14 @@ export default function KbDetailDrawer({
       message.success(`${file.name} 上传成功！`);
       onSuccess('ok');
       fetchDocs(); // 上传成功，刷新表格
-      if(onRefreshKbList){
+      if (onRefreshKbList) {
         onRefreshKbList();
       }
     } catch (error) {
       message.error(`${file.name} 上传失败`);
       onError(error);
-    } finally{
-        setUploading(false);
+    } finally {
+      setUploading(false);
     }
   };
   const handleDeleteDoc = async (docId: string) => {
@@ -103,7 +103,7 @@ export default function KbDetailDrawer({
       await request(`/docs/${docId}`, { method: 'DELETE' });
       message.success('文档及碎片已彻底清除');
       fetchDocs(); // 删完立刻刷新列表
-      if(onRefreshKbList){
+      if (onRefreshKbList) {
         onRefreshKbList();
       }
     } catch (error) {
@@ -113,7 +113,28 @@ export default function KbDetailDrawer({
 
   // 表格列配置
   const columns = [
-    { title: '文件名', dataIndex: 'fileName', key: 'fileName' },
+    {
+      title: '文件名',
+      dataIndex: 'fileName',
+      key: 'fileName',
+      render: (text: string, record: any) => {
+        const rawPath=record.filePath || '';
+        const safePath=rawPath.replace(/\\/g,'/');
+        const fileLink = safePath.startsWith('http')
+          ? safePath
+          : `http://localhost:8080/${safePath}`;
+          return (
+            <a
+            href={fileLink}
+            target='_blank'
+            rel="noopener noreferrer"
+            className='text-blue-500 hover:text-blue-700 hover:underline cursor-pointer'
+            >
+              {text}
+            </a>
+          )
+      },
+    },
     {
       title: '大小',
       dataIndex: 'fileSize',

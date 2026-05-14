@@ -33,3 +33,9 @@ type Response struct {
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }
+
+// UpdateKbRequest 更新知识库的请求参数
+type UpdateKBRequest struct {
+	Name        string `json:"name" binding:"required" example:"研发需求库"`
+	Description string `json:"description" example:"存放所有研发相关的基础文档"`
+}

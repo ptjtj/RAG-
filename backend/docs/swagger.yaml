@@ -1,5 +1,17 @@
 basePath: /api/v1
 definitions:
+  controllers.ChatRequest:
+    properties:
+      kbId:
+        description: 接收前端传来的知识库 ID
+        type: integer
+      message:
+        type: string
+      sessionId:
+        type: integer
+    required:
+    - message
+    type: object
   controllers.LoginRequest:
     properties:
       password:
@@ -107,6 +119,30 @@ info:
   title: AI 知识库管理平台 API
   version: "1.0"
 paths:
+  /chat:
+    post:
+      consumes:
+      - application/json
+      description: 采用 SSE (Server-Sent Events) 实现的流式打字机和思维链输出
+      parameters:
+      - description: 提问参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.ChatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 返回 SSE 格式的数据流
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: 智能对话 (流式返回)
+      tags:
+      - 智能对话
   /configs:
     get:
       description: 获取系统大模型API Key等动态配置

@@ -1,54 +1,38 @@
 import {
-  creatKnowledgeBase,
-  deleteKnowledgeBase,
   getKnowledgeBases,
 } from '@/services/api/knowledgeBase';
 import {
-  DeleteOutlined,
-  FileTextOutlined,
-  MoreOutlined,
   PlusOutlined,
-  RobotOutlined,
-  SettingOutlined,
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import {
   Button,
-  Card,
-  Dropdown,
   Empty,
   MenuProps,
   message,
   Spin,
-  Tag,
   Typography,
-  Form,
-  Input,
-  Modal,
 } from 'antd';
 import { useEffect, useState } from 'react';
 import CreateKbModal from './components/CreateKbModal';
 import KbDetailDrawer from './components/KbDetailDrawer';
-import { formatTime } from '@/utils/format';
-import { putKbId } from '@/services/api/knowledgeBase';
+import EditKbModal from './components/EditKbModal';
+import KbCard from './components/KbCard';
 
-const { Paragraph } = Typography;
 
 export default function KnowledgeBaseList() {
-  //用于编辑弹窗的状态和表单实例
-  const [isEditModalOpen, setIsEditModalOpen]=useState(false);
-  const [editingKbId, setEditingKbId]=useState<number | null>(null);
-  const [editForm]=Form.useForm();
-  //将静态数据转换为 React 状态，这样新增和删除才会触发页面刷新
+
   const [kbList, setkbList] = useState<any[]>([]);
-  //新建知识库弹窗
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  // 控制抽屉的状态
+  // 控制新建知识库弹窗的状态
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [activeKb, setActiveKb] = useState<{ id: number | null; name: string }>(
     { id: null, name: '' },
   );
+  // 编辑弹窗特有状态,只需要记录当前在编辑谁的数据
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingKbData, setEditingKbData] = useState<any>(null);
 
   const fetchKbs = async () => {
     setLoading(true);
@@ -65,57 +49,6 @@ export default function KnowledgeBaseList() {
   useEffect(() => {
     fetchKbs();
   }, []);
-  //删除接口 卡片右上角的“更多操作”下拉菜单
-  const getActionMenu = (kb: any): MenuProps => ({
-    items: [
-      {
-        key: 'settings',
-        icon: <SettingOutlined />,
-        label: '空间设置',
-      },
-      {
-        type: 'divider',
-      },
-      {
-        key: 'delete',
-        icon: <DeleteOutlined className="text-red-500" />,
-        label: <span className="text-red-500">删除知识库</span>,
-      },
-    ],
-    onClick: async ({ key,domEvent }) => {
-      domEvent.stopPropagation();
-      if(key==='settings'){
-        setEditingKbId(kb.id);
-        editForm.setFieldsValue({
-          name:kb.name,
-          description:kb.description,
-        })
-        setIsEditModalOpen(true);
-      }
-      if (key === 'delete') {
-        try {
-          await deleteKnowledgeBase({ id:kb.id });
-          message.success('已成功删除知识库');
-          fetchKbs(); //删除成功后，刷新列表
-        } catch (e) {
-          message.error('删除失败');
-        }
-      }
-    },
-  });
-const handleEditSubmit=async()=>{
-  try{
-    const values=await editForm.validateFields();
-    if(!editingKbId) return;
-    await putKbId({id:editingKbId},values);
-    message.success('知识库更新成功！');
-    setIsEditModalOpen(false); //关闭弹窗
-    fetchKbs()
-  } catch(error){
-    console.log('更新验证失败', error);
-  }
-};
-
 
   return (
     <PageContainer
@@ -127,7 +60,7 @@ const handleEditSubmit=async()=>{
           type="primary"
           icon={<PlusOutlined />}
           className="bg-blue-600"
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => setIsCreateOpen(true)}
         >
           新建知识库
         </Button>,
@@ -152,7 +85,7 @@ const handleEditSubmit=async()=>{
                 icon={<PlusOutlined />}
                 className="mt-4 bg-blue-600"
                 onClick={() => {
-                  setIsModalOpen(true);
+                  setIsCreateOpen(true);
                 }}
               >
                 立即创建
@@ -163,135 +96,45 @@ const handleEditSubmit=async()=>{
         {/* 使用 Tailwind CSS 实现响应式网格布局 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-2">
           {kbList.map((kb) => (
-            <Card
+            <KbCard
+              kb={kb}
               key={kb.id}
-              onClick={() => {
-                setActiveKb({ id: kb.id, name: kb.name });
+              onClick={(data) => {
+                setActiveKb({ id: data.id, name: data.name });
                 setDrawerVisible(true);
               }}
-              variant="borderless"
-              className="hover:shadow-xl transition-shadow duration-300 rounded-xl overflow-hidden cursor-pointer flex flex-col h-full"
-              styles={{
-                body: {
-                  padding: '24px',
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                },
+              onEdit={(data) => {
+                setEditingKbData(data);
+                setIsEditModalOpen(true);
               }}
-            >
-              {/* 卡片头部：标题与状态 */}
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-3 font-semibold text-lg text-gray-800">
-                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
-                    <RobotOutlined className="text-xl" />
-                  </div>
-                  <span className="truncate w-40" title={kb.name}>
-                    {kb.name}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {kb.status === 'active' ? (
-                    <Tag
-                      color="success"
-                      className="m-0 border-none bg-green-50 text-green-600 font-medium"
-                    >
-                      就绪
-                    </Tag>
-                  ) : (
-                    <Tag
-                      color="processing"
-                      className="m-0 border-none bg-blue-50 text-blue-600 font-medium"
-                    >
-                      处理中
-                    </Tag>
-                  )}
-
-                  <Dropdown
-                    menu={getActionMenu(kb)}
-                    trigger={['click']}
-                    placement="bottomRight"
-                  >
-                    <Button
-                      type="text"
-                      icon={
-                        <MoreOutlined className="text-gray-400 hover:text-gray-600" />
-                      }
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </Dropdown>
-                </div>
-              </div>
-
-              {/* 卡片中间：描述信息 */}
-              <div className="flex-1 mb-6">
-                <Paragraph
-                  className="text-gray-500 text-sm leading-relaxed m-0"
-                  ellipsis={{ rows: 2 }}
-                >
-                  {kb.description}
-                </Paragraph>
-              </div>
-
-              {/* 卡片底部：统计数据与时间 */}
-              <div className="flex items-center justify-between text-xs text-gray-400 border-t border-gray-100 pt-4 mt-auto">
-                <div className="flex items-center gap-1.5">
-                  <FileTextOutlined />
-                  <span>{kb.docCount} 份文档</span>
-                </div>
-                <div>更新于{formatTime(kb.updatedAt)}</div>
-              </div>
-            </Card>
+              onDeleteSuccess={fetchKbs}
+            />
           ))}
         </div>
       </Spin>
       <CreateKbModal
-        open={isModalOpen}
-        onCancel={() => setIsModalOpen(false)}
-        onSuccess={async (newKbValues) => {
-          // 收到子组件传来的新数据，插入到列表最前面
-          try {
-            // 直接把表单收集到的值传给 API
-            await creatKnowledgeBase(newKbValues);
-            message.success('知识库创建成功');
-            setIsModalOpen(false);
-            //// 创建成功后，立刻重新获取列表刷新页面
-            fetchKbs();
-          } catch (error) {
-            message.error('创建失败，请重试');
-          }
+        open={isCreateOpen}
+        onCancel={() => setIsCreateOpen(false)}
+        onSuccess={() => {
+          setIsCreateOpen(false);
+          fetchKbs();
         }}
       />
-      {/* 修改知识库的弹窗 */}
-      <Modal
-        title="空间设置"
+      {/* 抽离后的编辑弹窗 */}
+      <EditKbModal
         open={isEditModalOpen}
-        onOk={handleEditSubmit}
+        kbId={editingKbData?.id || null}
+        initialValues={{
+          name: editingKbData?.name,
+          description: editingKbData?.description,
+        }}
         onCancel={() => setIsEditModalOpen(false)}
-        okText="保存修改"
-        cancelText="取消"
-        destroyOnClose
-      >
-        <Form form={editForm} layout="vertical" className="mt-4">
-          <Form.Item
-            name="name"
-            label="知识库名称"
-            rules={[{ required: true, message: '知识库名称不能为空' }]}
-          >
-            <Input placeholder="请输入知识库名称" size="large" />
-          </Form.Item>
-          <Form.Item
-          name="description"
-          label="知识库描述"
-          >
-            <Input.TextArea
-              placeholder="请输入简短的描述，用于区分不同的知识库"
-              rows={4}
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
+        onSuccess={() => {
+          setIsEditModalOpen(false);
+          fetchKbs();
+        }}
+      />
+      {/* 侧边抽屉 */}
       <KbDetailDrawer
         open={drawerVisible}
         kbId={activeKb.id}

@@ -1,28 +1,28 @@
 import React from "react";
-import { Modal, Form, Input, Slider, Tooltip } from 'antd';
+import { Modal, Form, Input, Slider, Tooltip, message } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import { creatKnowledgeBase } from "@/services/api/knowledgeBase";
 
 interface CreateKbModalProps{
     open:boolean;
     onCancel:()=>void;
     onSuccess:(newKb:any)=>void // 创建成功后，把新数据传给父组件的回调
 }
-
+//新建知识库
 export default function CreateKbModal({open,onCancel,onSuccess}:CreateKbModalProps){
 const [form]=Form.useForm()
 const handleOk=async()=>{
     try{
         const values =await form.validateFields();
-        const newKb={
-            id: Date.now(),
-            name:values.name,
-            description:values.description || '暂无描述',
-            docCount:0,
-            status:'active',
-            updatedAt: new Date().toISOString().replace('T',' ').substring(0,19),
-        }
-        onSuccess(newKb)
+        await creatKnowledgeBase({
+          name: values.name,
+          description: values.description,
+          chunkSize: values.chunkSize || 500,
+        });
+        message.success('知识库创建成功！');
+        onSuccess({});
         form.resetFields();
+       
     } catch (error){
         console.log('表单校验失败',error);
         

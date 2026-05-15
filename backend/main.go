@@ -78,7 +78,7 @@ func main() {
 		protected.GET("/kb/:kb_id/docs", controllers.GetDocuments)
 		protected.POST("/kb/:kb_id/upload", controllers.UploadDocument)
 		// ==== 智能对话 ====
-		protected.POST("/chat", controllers.SimpleChat)
+		protected.POST("/chat", controllers.StreamChat)
 		protected.GET("/sessions", controllers.GetSessions)
 		protected.POST("/sessions", controllers.CreateSession)
 		protected.GET("/sessions/:id/messages", controllers.GetSessionMessages)

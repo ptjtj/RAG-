@@ -15,6 +15,45 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/chat": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "采用 SSE (Server-Sent Events) 实现的流式打字机和思维链输出",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "智能对话"
+                ],
+                "summary": "智能对话 (流式返回)",
+                "parameters": [
+                    {
+                        "description": "提问参数",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ChatRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "返回 SSE 格式的数据流",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/configs": {
             "get": {
                 "security": [
@@ -624,6 +663,24 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "controllers.ChatRequest": {
+            "type": "object",
+            "required": [
+                "message"
+            ],
+            "properties": {
+                "kbId": {
+                    "description": "接收前端传来的知识库 ID",
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "sessionId": {
+                    "type": "integer"
+                }
+            }
+        },
         "controllers.LoginRequest": {
             "type": "object",
             "required": [

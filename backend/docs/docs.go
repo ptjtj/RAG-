@@ -221,8 +221,8 @@ const docTemplate = `{
                 "operationId": "creatKnowledgeBase",
                 "parameters": [
                     {
-                        "description": "请求参数",
-                        "name": "req",
+                        "description": "创建知识库请求体",
+                        "name": "data",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -767,6 +767,10 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "systemPrompt": {
+                    "description": "接收前端传来的提示词",
+                    "type": "string"
                 }
             }
         },
@@ -792,6 +796,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
+                    "type": "string"
+                },
+                "systemPrompt": {
+                    "description": "系统提示词字段",
                     "type": "string"
                 },
                 "updatedAt": {
@@ -827,6 +835,11 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "example": "研发需求库"
+                },
+                "systemPrompt": {
+                    "description": "允许用户修改提示词",
+                    "type": "string",
+                    "example": "你是一个专业的法务..."
                 }
             }
         }

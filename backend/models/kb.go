@@ -18,6 +18,8 @@ type KnowledgeBase struct {
 	DocCount    int            `gorm:"default:0" json:"docCount"`
 	Status      string         `gorm:"type:varchar(20);default:'active'" json:"status"`
 	ChunkSize   int            `gorm:"default:500" json:"chunkSize"`
+	//系统提示词字段
+	SystemPrompt string `gorm:"type:text" json:"systemPrompt"`
 }
 
 // CreateKBRequest 创建知识库请求参数
@@ -25,6 +27,8 @@ type CreateKBRequest struct {
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
 	ChunkSize   int    `json:"chunkSize"`
+	//接收前端传来的提示词
+	SystemPrompt string `json:"systemPrompt"`
 }
 
 // Response 通用响应格式
@@ -38,4 +42,6 @@ type Response struct {
 type UpdateKBRequest struct {
 	Name        string `json:"name" binding:"required" example:"研发需求库"`
 	Description string `json:"description" example:"存放所有研发相关的基础文档"`
+	//允许用户修改提示词
+	SystemPrompt string `json:"systemPrompt" example:"你是一个专业的法务..."`
 }

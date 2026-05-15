@@ -165,13 +165,33 @@ func StreamChat(c *gin.Context) {
 			Content:   req.Message,
 		}
 		config.DB.Create(&userMsg)
+		//异步更新会话标题
+		var session models.ChatSession
+		config.DB.First(&session, req.SessionID)
+		if session.Title == "新对话" {
+			go func(sid uint, msg string) {
+				newTitle := generateTitleByAI(msg)
+				config.DB.Model(&models.ChatSession{}).Where("id = ?", sid).Update("title", newTitle)
+			}(req.SessionID, req.Message)
+		}
 	}
 
 	var contextStr string
 	var sources []services.SourceItem
+	var currentSystemPrompt string //准备一个变量装载提示词
 
 	// ================= 语义检索：去向量库找线索 =================
 	if req.KbID > 0 {
+		//先去数据库查出这个知识库的专属 Prompt
+		var kb models.KnowledgeBase
+		if err := config.DB.First(&kb, req.KbID).Error; err == nil {
+			if kb.SystemPrompt != "" {
+				currentSystemPrompt = kb.SystemPrompt
+			} else {
+				currentSystemPrompt = "你是一个专业的企业知识库助手。请根据以下【背景知识】准确回答用户的问题。\n若背景知识无法回答问题，请诚实说明“知识库中未找到相关信息”，不要瞎编。"
+			}
+		}
+		//然后再去向量库找线索
 		var err error
 		contextStr, sources, err = services.SearchTopChunksWithSources(req.KbID, req.Message)
 		if err != nil {
@@ -182,14 +202,12 @@ func StreamChat(c *gin.Context) {
 	// =================构造超级 Prompt =================
 	finalPrompt := req.Message
 	if contextStr != "" {
-		finalPrompt = fmt.Sprintf(`你是一个专业的企业知识库助手。请根据以下【背景知识】准确回答用户的问题。
-若背景知识无法回答问题，请诚实说明“知识库中未找到相关信息”，不要瞎编。
-
+		finalPrompt = fmt.Sprintf(`%s
 【背景知识】：
 %s
 
 【用户的问题】：
-%s`, contextStr, req.Message)
+%s`, currentSystemPrompt, contextStr, req.Message)
 	}
 
 	// 如果要触发思维链，DeepSeek 官方的推理模型名字必须是 deepseek-reasoner
@@ -249,15 +267,6 @@ func StreamChat(c *gin.Context) {
 				}
 				config.DB.Create(&aiMsg)
 
-				// 3. 异步更新会话标题
-				var session models.ChatSession
-				config.DB.First(&session, req.SessionID)
-				if session.Title == "新对话" {
-					go func(sid uint, msg string) {
-						newTitle := generateTitleByAI(msg)
-						config.DB.Model(&models.ChatSession{}).Where("id = ?", sid).Update("title", newTitle)
-					}(req.SessionID, req.Message)
-				}
 			}
 			return // 彻底结束接口
 		}

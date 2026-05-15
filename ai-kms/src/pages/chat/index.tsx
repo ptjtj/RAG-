@@ -85,7 +85,7 @@ export default function ChatPage() {
   }, []);
 
   return (
-    <Layout className="h-[calc(100vh-64px)] flex flex-row bg-white">
+    <Layout className="h-[calc(100vh-64px)] flex flex-row bg-white relative">
       {messageContextHolder}
       {modalContextHolder}
       <ChatSidebar

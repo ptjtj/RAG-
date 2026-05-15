@@ -1,8 +1,17 @@
 declare namespace API {
+  type ChatRequest = {
+    /** 接收前端传来的知识库 ID */
+    kbId?: number;
+    message: string;
+    sessionId?: number;
+  };
+
   type CreateKBRequest = {
     chunkSize?: number;
     description?: string;
     name: string;
+    /** 接收前端传来的提示词 */
+    systemPrompt?: string;
   };
 
   type deleteDocumentParams = {
@@ -28,6 +37,8 @@ declare namespace API {
     id?: number;
     name?: string;
     status?: string;
+    /** 系统提示词字段 */
+    systemPrompt?: string;
     updatedAt?: string;
   };
 
@@ -61,6 +72,8 @@ declare namespace API {
   type UpdateKBRequest = {
     description?: string;
     name: string;
+    /** 允许用户修改提示词 */
+    systemPrompt?: string;
   };
 
   type UpdatePasswordRequest = {

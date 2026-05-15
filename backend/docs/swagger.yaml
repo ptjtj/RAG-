@@ -69,6 +69,9 @@ definitions:
         type: string
       name:
         type: string
+      systemPrompt:
+        description: 接收前端传来的提示词
+        type: string
     required:
     - name
     type: object
@@ -87,6 +90,9 @@ definitions:
       name:
         type: string
       status:
+        type: string
+      systemPrompt:
+        description: 系统提示词字段
         type: string
       updatedAt:
         type: string
@@ -108,6 +114,10 @@ definitions:
         type: string
       name:
         example: 研发需求库
+        type: string
+      systemPrompt:
+        description: 允许用户修改提示词
+        example: 你是一个专业的法务...
         type: string
     required:
     - name
@@ -243,9 +253,9 @@ paths:
       description: 接收前端参数并在数据库中创建新记录
       operationId: creatKnowledgeBase
       parameters:
-      - description: 请求参数
+      - description: 创建知识库请求体
         in: body
-        name: req
+        name: data
         required: true
         schema:
           $ref: '#/definitions/models.CreateKBRequest'

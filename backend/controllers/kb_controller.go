@@ -31,7 +31,7 @@ func GetKnowledgeBases(c *gin.Context) {
 // @Tags KnowledgeBase
 // @Accept json
 // @Produce json
-// @Param req body models.CreateKBRequest true "请求参数"
+// @Param data body models.CreateKBRequest true "创建知识库请求体"
 // @Success 200 {object} models.Response{data=models.KnowledgeBase} "成功"
 // @Router /kb [post]
 // @ID creatKnowledgeBase
@@ -43,11 +43,12 @@ func CreateKnowledgeBase(c *gin.Context) {
 	}
 
 	kb := models.KnowledgeBase{
-		Name:        req.Name,
-		Description: req.Description,
-		ChunkSize:   req.ChunkSize,
-		Status:      "active",
-		DocCount:    0,
+		Name:         req.Name,
+		Description:  req.Description,
+		ChunkSize:    req.ChunkSize,
+		SystemPrompt: req.SystemPrompt,
+		Status:       "active",
+		DocCount:     0,
 	}
 
 	if err := config.DB.Create(&kb).Error; err != nil {
@@ -105,8 +106,9 @@ func UpdateKnowledgeBase(c *gin.Context) {
 		return
 	}
 	result := config.DB.Model(&models.KnowledgeBase{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"name":        req.Name,
-		"description": req.Description,
+		"name":          req.Name,
+		"description":   req.Description,
+		"system_prompt": req.SystemPrompt,
 	})
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "更新失败"})

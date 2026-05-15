@@ -7,7 +7,9 @@ import * as knowledgeBase from './knowledgeBase';
 import * as renzhengAuth from './renzhengAuth';
 import * as xitongpeizhi from './xitongpeizhi';
 import * as yonghuUser from './yonghuUser';
+import * as zhinengduihua from './zhinengduihua';
 export default {
+  zhinengduihua,
   xitongpeizhi,
   document,
   knowledgeBase,

@@ -2,8 +2,8 @@ import MarkdownBlock from '@/components/markdownBlock';
 import {
   CheckCircleFilled,
   CheckOutlined,
+  ClockCircleFilled,
   CopyOutlined,
-  EditFilled,
   EditOutlined,
   FileTextOutlined,
   LoadingOutlined,
@@ -35,6 +35,7 @@ interface Message {
   reasoning?: string; // 记录 AI 的思考过程
   isThinking?: boolean; // 是否正在思考中
   thinkingTime?: number; // 思考耗时(秒)
+  isStopped?:boolean
   sources?: { title: string; score: number }[];
 }
 
@@ -244,9 +245,27 @@ export default function ChatBox({
           }
         }
       }
+      //把左侧的“新对话”更新成 AI 自动总结的具体标题
+      if (onRefreshSessions) {
+        setTimeout(() => {
+          onRefreshSessions();
+        }, 2000);
+      }
     } catch (error: any) {
       if (error.name === 'AbortError') {
         console.log('用户主动终止了对话');
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === aiMsgId
+              ? {
+                  ...msg,
+                  isThinking: false,
+                  // 如果还没开始吐正式内容，说明是在思考阶段被打断的
+                  isStopped: msg.isThinking || !msg.content,
+                }
+              : msg,
+          ),
+        );
         return;
       }
       messageApi.error('网络请求失败');
@@ -267,22 +286,22 @@ export default function ChatBox({
       abortControllerRef.current = null;
     }
   };
-  const handleCopy=async(text:string,msgId:string)=>{
-    try{
+  const handleCopy = async (text: string, msgId: string) => {
+    try {
       // 调用浏览器剪贴板 API
       await navigator.clipboard.writeText(text);
       setCopiedId(msgId);
       setTimeout(() => {
         setCopiedId(null);
       }, 2000);
-    } catch(err){
+    } catch (err) {
       messageApi.error('复制失败，您的浏览器可能不支持');
     }
   };
-  const handleEdit=(text:string)=>{
+  const handleEdit = (text: string) => {
     setInputValue(text);
-    messagesEndRef.current?.scrollIntoView({behavior:'smooth'});
-  }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   // 如果左侧没有选中任何会话，显示一个占位符
   if (!currentSessionId) {
@@ -348,7 +367,7 @@ export default function ChatBox({
                   ) : (
                     <div className="flex flex-col gap-3 w-full">
                       {/* 思维链折叠面板 */}
-                      {(msg.reasoning || msg.isThinking) && (
+                      {(msg.reasoning || msg.isThinking || msg.isStopped) && (
                         <Collapse
                           ghost
                           expandIconPosition="end"
@@ -358,7 +377,12 @@ export default function ChatBox({
                               key: '1',
                               label: (
                                 <div className="flex items-center gap-2 text-gray-500 font-medium text-sm">
-                                  {msg.isThinking ? (
+                                  {msg.isStopped ? (
+                                    <>
+                                    <ClockCircleFilled className='text-gray-400'/>
+                                    <span>已停止</span>
+                                    </>
+                                  ) : msg.isThinking ? (
                                     <>
                                       <LoadingOutlined className="text-blue-500" />
                                       <span>
@@ -419,17 +443,33 @@ export default function ChatBox({
                       />
                     </Tooltip>
                     <Tooltip title="编辑">
-                      <Button 
-                      type='text'
-                      size='small'
-                      className='text-gray-400 hover:text-blue-500 flex items-center justify-center'
-                      icon={<EditOutlined/>}
-                      onClick={()=>handleEdit(msg.content)}
+                      <Button
+                        type="text"
+                        size="small"
+                        className="text-gray-400 hover:text-blue-500 flex items-center justify-center"
+                        icon={<EditOutlined />}
+                        onClick={() => handleEdit(msg.content)}
                       />
                     </Tooltip>
                   </div>
                 )}
-
+                {/* AI 消息底部的操作栏 */}
+                {msg.role === 'assistant' && !msg.isThinking && msg.content && (
+                  <div className='flex items-center gap-1 mr-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ml-1'>
+                    <Tooltip title="复制全文">
+                      <Button 
+                      type='text'
+                      size='small'
+                      className='text-gray-400 hover:text-blue-500 flex items-center justify-center'
+                      icon={
+                        copiedId===msg.id? (<CheckOutlined className='text-green-500'/>) :(<CopyOutlined/>)
+                      }
+                      onClick={()=>handleCopy(msg.content,msg.id)}
+                      />
+                    </Tooltip>                 
+                  </div>
+                )}
+                {/* AI溯源*/}
                 {msg.role === 'assistant' &&
                   msg.sources &&
                   msg.sources.length > 0 && (

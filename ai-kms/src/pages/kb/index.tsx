@@ -127,6 +127,8 @@ export default function KnowledgeBaseList() {
         initialValues={{
           name: editingKbData?.name,
           description: editingKbData?.description,
+          systemPrompt: editingKbData?.systemPrompt,
+          
         }}
         onCancel={() => setIsEditModalOpen(false)}
         onSuccess={() => {

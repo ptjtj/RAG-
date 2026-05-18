@@ -14,13 +14,6 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-// ChatRequest 接收前端提问的结构体
-type ChatRequest struct {
-	Message   string `json:"message" binding:"required"`
-	KbID      uint   `json:"kbId"` //  接收前端传来的知识库 ID
-	SessionID uint   `json:"sessionId"`
-}
-
 // 先写一个辅助函数：让 AI 总结标题
 func generateTitleByAI(firstMsg string) string {
 	// 构造一个专门总结标题的 Prompt
@@ -36,7 +29,7 @@ func generateTitleByAI(firstMsg string) string {
 
 // SimpleChat AI 聊天测试接口
 func SimpleChat(c *gin.Context) {
-	var req ChatRequest
+	var req models.ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, models.Response{Code: 400, Message: "参数错误: " + err.Error()})
 		return
@@ -147,18 +140,18 @@ func SimpleChat(c *gin.Context) {
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param data body ChatRequest true "提问参数"
+// @Param data body models.ChatRequest true "提问参数"
 // @Success 200 {string} string "返回 SSE 格式的数据流"
 // @Router /chat [post]
 func StreamChat(c *gin.Context) {
-	var req ChatRequest
+	var req models.ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, models.Response{Code: 400, Message: "参数错误: " + err.Error()})
 		return
 	}
 
 	// =================先把用户的问题存进数据库 =================
-	if req.SessionID > 0 {
+	if req.SessionID > 0 && !req.IsContinue {
 		userMsg := models.ChatMessage{
 			SessionID: req.SessionID,
 			Role:      "user",
@@ -223,15 +216,22 @@ func StreamChat(c *gin.Context) {
 	}
 
 	// ================= 组装请求参数并开启 Stream =================
+	messages := []openai.ChatCompletionMessage{
+		{Role: openai.ChatMessageRoleUser, Content: finalPrompt},
+	}
+	if req.IsContinue && req.PartialContent != "" {
+		messages = append(messages, openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleAssistant,
+			Content: req.PartialContent,
+		})
+	}
 	chatReq := openai.ChatCompletionRequest{
-		Model: modelName,
-		Messages: []openai.ChatCompletionMessage{
-			{Role: openai.ChatMessageRoleUser, Content: finalPrompt},
-		},
-		Stream: true, // 开启流式开关！
+		Model:    modelName,
+		Messages: messages,
+		Stream:   true, // 开启流式开关
 	}
 
-	stream, err := client.CreateChatCompletionStream(context.Background(), chatReq)
+	stream, err := client.CreateChatCompletionStream(c.Request.Context(), chatReq)
 	if err != nil {
 		c.JSON(http.StatusOK, models.Response{
 			Code:    400,
@@ -240,33 +240,67 @@ func StreamChat(c *gin.Context) {
 	}
 	defer stream.Close()
 
-	// ================= 5. 设置 SSE (Server-Sent Events) 响应头 =================
+	// ================= 设置 SSE (Server-Sent Events) 核心安全响应头 =================
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
-	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Cache-Control", "no-cache, no-transform")
 	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("X-Accel-Buffering", "no")
 
 	var fullAnswer string //  准备一个空杯子，用来一点点收集大模型的完整正式回答
 
 	// =================  循环读取流，实时推给前端 =================
 	for {
+		select {
+		case <-c.Request.Context().Done():
+			//监听到前端断开连接（用户点了暂停按钮）
+			if req.SessionID > 0 && fullAnswer != "" {
+				if req.IsContinue {
+					// 找出现存的最后一条半截 AI 消息，把新吐出来的字追加上去
+					var lastMsg models.ChatMessage
+					if err := config.DB.Where("session_id = ? AND role = ?", req.SessionID, "assistant").Order("id desc").First(&lastMsg).Error; err == nil {
+						config.DB.Model(&lastMsg).Update("content", lastMsg.Content+fullAnswer)
+					}
+				} else {
+					aiMsg := models.ChatMessage{
+						SessionID: req.SessionID,
+						Role:      "assistant",
+						Content:   fullAnswer,
+					}
+					config.DB.Create(&aiMsg)
+				}
+			}
+			return // 彻底切断当前 Goroutine，放过大模型连接
+		default:
+			//平级平滑过渡，前端还在，继续往下走去接大模型的字
+		}
 		response, err := stream.Recv()
-
 		// 如果读到末尾 EOF，或者发生异常
 		if err != nil {
 			// 1. 发送结束标志和溯源数据给前端
 			sourcesJSON, _ := json.Marshal(sources)
 			c.Writer.Write([]byte(fmt.Sprintf("data: {\"type\":\"done\", \"sources\": %s}\n\n", string(sourcesJSON))))
-			c.Writer.Flush()
+			if flusher, ok := c.Writer.(http.Flusher); ok {
+				flusher.Flush()
+			} else {
+				c.Writer.Flush()
+			}
 
-			// 2. 对话结束了，现在杯子（fullAnswer）装满了！把它存入数据库！
+			// 对话结束了，现在杯子（fullAnswer）装满了！把它存入数据库！
 			if req.SessionID > 0 && fullAnswer != "" {
-				aiMsg := models.ChatMessage{
-					SessionID: req.SessionID,
-					Role:      "assistant",
-					Content:   fullAnswer,
+				if req.IsContinue {
+					// 找出现存的最后一条半截 AI 消息，把新吐出来的字追加上去
+					var lastMsg models.ChatMessage
+					if err := config.DB.Where("session_id = ? AND role = ?", req.SessionID, "assistant").Order("id desc").First(&lastMsg).Error; err == nil {
+						config.DB.Model(&lastMsg).Update("content", lastMsg.Content+fullAnswer)
+					}
+				} else {
+					aiMsg := models.ChatMessage{
+						SessionID: req.SessionID,
+						Role:      "assistant",
+						Content:   fullAnswer,
+					}
+					config.DB.Create(&aiMsg)
 				}
-				config.DB.Create(&aiMsg)
-
 			}
 			return // 彻底结束接口
 		}
@@ -278,7 +312,11 @@ func StreamChat(c *gin.Context) {
 		if delta.ReasoningContent != "" {
 			escapedReasoning, _ := json.Marshal(delta.ReasoningContent) // 自动带上双引号并转义换行符
 			c.Writer.Write([]byte(fmt.Sprintf("data: {\"type\":\"reasoning\", \"content\":%s}\n\n", string(escapedReasoning))))
-			c.Writer.Flush()
+			if flusher, ok := c.Writer.(http.Flusher); ok {
+				flusher.Flush()
+			} else {
+				c.Writer.Flush()
+			}
 		}
 
 		// 情景 B：如果是大模型的“最终正式回答”
@@ -286,7 +324,11 @@ func StreamChat(c *gin.Context) {
 			fullAnswer += delta.Content // 把它装进杯子里存起来（后端用）
 			escapedContent, _ := json.Marshal(delta.Content)
 			c.Writer.Write([]byte(fmt.Sprintf("data: {\"type\":\"answer\", \"content\":%s}\n\n", string(escapedContent))))
-			c.Writer.Flush() // 立刻推给前端渲染
+			if flusher, ok := c.Writer.(http.Flusher); ok {
+				flusher.Flush()
+			} else {
+				c.Writer.Flush()
+			}
 		}
 	}
 }

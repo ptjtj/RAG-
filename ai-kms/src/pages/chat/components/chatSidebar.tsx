@@ -64,7 +64,18 @@ const [collapsed, setCollapsed]=useState(false);
                 block
                 size="large"
                 icon={<PlusOutlined />}
-                onClick={onCreateSession}
+                onClick={()=>{
+                  const existingNewSession = sessions.find(
+                    (s) => s.title === '新对话',
+                  );
+                  if(existingNewSession){
+                    if (currentSessionId !==existingNewSession.id){
+                      onSelectSession(existingNewSession.id);
+                    }
+                  } else{
+                    onCreateSession();
+                  }
+                }}
                 className="shadow-sm flex-1"
                 loading={isCreating}
                 disabled={isCreating}

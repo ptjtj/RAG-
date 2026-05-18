@@ -1,17 +1,5 @@
 basePath: /api/v1
 definitions:
-  controllers.ChatRequest:
-    properties:
-      kbId:
-        description: 接收前端传来的知识库 ID
-        type: integer
-      message:
-        type: string
-      sessionId:
-        type: integer
-    required:
-    - message
-    type: object
   controllers.LoginRequest:
     properties:
       password:
@@ -60,6 +48,24 @@ definitions:
         type: string
     required:
     - newUsername
+    type: object
+  models.ChatRequest:
+    properties:
+      isContinue:
+        description: 接收继续生成的信号和上下文
+        type: boolean
+      kbId:
+        description: 接收前端传来的知识库 ID
+        type: integer
+      message:
+        type: string
+      partialContent:
+        description: 已经生成的前半截内容
+        type: string
+      sessionId:
+        type: integer
+    required:
+    - message
     type: object
   models.CreateKBRequest:
     properties:
@@ -140,7 +146,7 @@ paths:
         name: data
         required: true
         schema:
-          $ref: '#/definitions/controllers.ChatRequest'
+          $ref: '#/definitions/models.ChatRequest'
       produces:
       - application/json
       responses:

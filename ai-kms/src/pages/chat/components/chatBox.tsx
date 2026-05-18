@@ -35,7 +35,7 @@ interface Message {
   reasoning?: string; // 记录 AI 的思考过程
   isThinking?: boolean; // 是否正在思考中
   thinkingTime?: number; // 思考耗时(秒)
-  isStopped?:boolean
+  isStopped?: boolean;
   sources?: { title: string; score: number }[];
 }
 
@@ -52,6 +52,9 @@ export default function ChatBox({
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  //获取滚动容器的 DOM
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+const isAtBottomRef = useRef(true);
   const [kbList, setKbList] = useState<any[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedKbId, setSelectedKbId] = useState<number | undefined>(
@@ -62,7 +65,7 @@ export default function ChatBox({
   const abortControllerRef = useRef<AbortController | null>(null);
   const isStoppingRef = useRef<boolean>(false); // 标记是否强制停止打字机逻辑
 
-  //获取知识库列表 (原生逻辑)
+  //获取知识库列表
   useEffect(() => {
     const fetchKbs = async () => {
       try {
@@ -115,9 +118,20 @@ export default function ChatBox({
     }
   }, [currentSessionId]);
 
-  //  自动滚动 (原生逻辑)
+  //  自动滚动 
+  const handleScroll=()=>{
+      if (!scrollContainerRef.current) return;
+      const { scrollTop, scrollHeight, clientHeight } =
+        scrollContainerRef.current;
+      // 如果距离底部小于 150px，我们就认为用户在底部；否则说明用户往上滑了
+      isAtBottomRef.current = scrollHeight - scrollTop - clientHeight < 150;
+  };
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if(isAtBottomRef.current){
+      // 注意：流式高频输出时，'smooth' 会导致动画堆积卡顿，改为 'auto' 瞬间贴底会更丝滑
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    }
+  
   };
   useEffect(() => {
     scrollToBottom();
@@ -133,6 +147,7 @@ export default function ChatBox({
   // 发送消息逻辑 流式发送与解析引擎
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading) return;
+    isAtBottomRef.current=true;
     isStoppingRef.current = false;
     abortControllerRef.current = new AbortController();
 
@@ -182,21 +197,23 @@ export default function ChatBox({
       const decoder = new TextDecoder('utf-8');
       let currentReasoning = '';
       let currentContent = '';
+      //引入残余数据缓冲区，解决网络截断与粘包
+      let buffer = '';
 
       while (true) {
         const { done, value } = await reader!.read();
         if (done) break;
 
         // 解码二进制数据块
-        const chunk = decoder.decode(value, { stream: true });
-        // 按 SSE 的双换行符分割数据块
-        const lines = chunk.split('\n\n');
-
-        for (const line of lines) {
+        buffer += decoder.decode(value, { stream: true });
+        //按标准的换行符切分出每一行
+        let lineEndIdx;
+        while ((lineEndIdx = buffer.indexOf('\n')) !== -1) {
+          const line = buffer.slice(0, lineEndIdx).trim();
+          buffer = buffer.slice(lineEndIdx + 1); // 留下还没输完的残余数据
           if (line.startsWith('data: ')) {
-            const dataStr = line.replace('data: ', '').trim();
+            const dataStr = line.replace('data:', '').trim();
             if (!dataStr) continue;
-
             try {
               const data = JSON.parse(dataStr);
               const costTime = Math.floor((Date.now() - startTime) / 1000);
@@ -241,7 +258,9 @@ export default function ChatBox({
                   ),
                 );
               }
-            } catch (e) {}
+            } catch (e) {
+              console.error('SSE 行解析失败:', e, line);
+            }
           }
         }
       }
@@ -260,8 +279,8 @@ export default function ChatBox({
               ? {
                   ...msg,
                   isThinking: false,
-                  // 如果还没开始吐正式内容，说明是在思考阶段被打断的
-                  isStopped: msg.isThinking || !msg.content,
+                  // 只要被打断，无条件标记为已停止，呼出继续生成按钮
+                  isStopped: true,
                 }
               : msg,
           ),
@@ -281,6 +300,121 @@ export default function ChatBox({
             : msg,
         ),
       );
+    } finally {
+      setIsLoading(false);
+      abortControllerRef.current = null;
+    }
+  };
+  //继续生成
+  const handleContinue = async (targetMsg: Message) => {
+    if (isLoading) return;
+    isStoppingRef.current = false;
+    abortControllerRef.current = new AbortController();
+    // 找到这条被卡住的消息对应的 User 提问 (它的上一条)
+    const msgIndex = messages.findIndex((m) => m.id === targetMsg.id);
+    const userMsg = messages[msgIndex - 1];
+    const userText = userMsg.content || '';
+    setIsLoading(true);
+
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === targetMsg.id
+          ? { ...msg, isStopped: false, isThinking: true }
+          : msg,
+      ),
+    );
+    const startTime = Date.now();
+    try {
+      const token = localStorage.getItem('accessToken') || '';
+
+      const response = await fetch('/api/v1/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          message: userText,
+          kbId: selectedKbId || 0,
+          sessionId: currentSessionId,
+          isContinue: true,
+          partialContent: targetMsg.content,
+        }),
+        signal: abortControllerRef.current.signal,
+      });
+      if (!response.ok) throw new Error('网络异常');
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder('utf-8');
+      //将初始游标设定为已有的内容，实现无缝接字
+      let currentReasoning = targetMsg.reasoning || '';
+      let currentContent = targetMsg.content || '';
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader!.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        let lineEndIdx;
+        while ((lineEndIdx = buffer.indexOf('\n')) !== -1) {
+          const line = buffer.slice(0, lineEndIdx).trim();
+          buffer = buffer.slice(lineEndIdx + 1);
+
+          if (line.startsWith('data: ')) {
+            const dataStr = line.replace('data: ', '').trim();
+            if (!dataStr) continue;
+            try {
+              const data = JSON.parse(dataStr);
+              if (data.type === 'reasoning') {
+                currentReasoning += data.content;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === targetMsg.id
+                      ? { ...msg, reasoning: currentReasoning }
+                      : msg,
+                  ),
+                );
+              } else if (data.type === 'answer') {
+                currentContent += data.content;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === targetMsg.id
+                      ? { ...msg, content: currentContent, isThinking: false }
+                      : msg,
+                  ),
+                );
+              } else if (data.type === 'done') {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === targetMsg.id
+                      ? {
+                          ...msg,
+                          sources: data.sources || [],
+                          isThinking: false,
+                        }
+                      : msg,
+                  ),
+                );
+              }
+            } catch (e) {
+              console.error('SSE 行解析失败:', e, line);
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        // 如果再次被暂停，依然贴上已停止标签
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === targetMsg.id
+              ? { ...msg, isThinking: false, isStopped: true }
+              : msg,
+          ),
+        );
+        return;
+      }
+      messageApi.error('继续生成失败');
     } finally {
       setIsLoading(false);
       abortControllerRef.current = null;
@@ -330,7 +464,11 @@ export default function ChatBox({
           }))}
         />
       </div>
-      <div className="flex-1 overflow-y-auto p-4 md:p-8">
+      <div
+        className="flex-1 overflow-y-auto p-4 md:p-8"
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+      >
         <div className="max-w-4xl mx-auto space-y-8">
           {messages.map((msg) => (
             <div
@@ -377,10 +515,10 @@ export default function ChatBox({
                               key: '1',
                               label: (
                                 <div className="flex items-center gap-2 text-gray-500 font-medium text-sm">
-                                  {msg.isStopped ? (
+                                  {msg.isStopped && !msg.content ? (
                                     <>
-                                    <ClockCircleFilled className='text-gray-400'/>
-                                    <span>已停止</span>
+                                      <ClockCircleFilled className="text-gray-400" />
+                                      <span>已停止</span>
                                     </>
                                   ) : msg.isThinking ? (
                                     <>
@@ -414,7 +552,27 @@ export default function ChatBox({
                       {(msg.content || !msg.isThinking) && (
                         <div className="prose prose-blue max-w-none text-gray-900 mt-2">
                           {msg.content ? (
-                            <MarkdownBlock content={msg.content} />
+                            <div className="relative">
+                              <MarkdownBlock content={msg.content} />
+                              {/* 当处于思考中（包含继续生成等待阶段），显示动态跳动的省略号 */}
+                              {msg.isThinking && (
+                                <div className='inline-flex items-center gap-1 mt-2 px-3 py-1.5  border border-gray-100
+                                rounded-full shadow-sm'>
+                                  <span
+                                    className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"
+                                    style={{ animationDelay: '0ms' }}
+                                  ></span>
+                                  <span
+                                    className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"
+                                    style={{ animationDelay: '150ms' }}
+                                  ></span>
+                                  <span
+                                    className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"
+                                    style={{ animationDelay: '300ms' }}
+                                  ></span>
+                                </div>
+                              )}
+                            </div>
                           ) : (
                             <span className="opacity-0">占位</span> // 保持高度不跳动
                           )}
@@ -430,7 +588,7 @@ export default function ChatBox({
                       <Button
                         type="text"
                         size="small"
-                        className="text-gray-400 hover:text-blue-500 flex items-center justify-center "
+                        className="text-gray-400 hover:text-blue-500 flex items-center justify-center"
                         // 如果当前 msgId 等于刚复制的 ID，就显示绿色的勾
                         icon={
                           copiedId === msg.id ? (
@@ -455,20 +613,37 @@ export default function ChatBox({
                 )}
                 {/* AI 消息底部的操作栏 */}
                 {msg.role === 'assistant' && !msg.isThinking && msg.content && (
-                  <div className='flex items-center gap-1 mr-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ml-1'>
-                    <Tooltip title="复制全文">
-                      <Button 
-                      type='text'
-                      size='small'
-                      className='text-gray-400 hover:text-blue-500 flex items-center justify-center'
-                      icon={
-                        copiedId===msg.id? (<CheckOutlined className='text-green-500'/>) :(<CopyOutlined/>)
-                      }
-                      onClick={()=>handleCopy(msg.content,msg.id)}
-                      />
-                    </Tooltip>                 
+                  <div className="flex items-center justify-between w-full mt-1">
+                    <div className="flex items-center gap-1 mr-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ml-1">
+                      <Tooltip title="复制全文">
+                        <Button
+                          type="text"
+                          size="small"
+                          className="text-gray-400 hover:text-blue-500 flex items-center justify-center"
+                          icon={
+                            copiedId === msg.id ? (
+                              <CheckOutlined className="text-green-500" />
+                            ) : (
+                              <CopyOutlined />
+                            )
+                          }
+                          onClick={() => handleCopy(msg.content, msg.id)}
+                        />
+                      </Tooltip>
+                    </div>
+                    {msg.isStopped && (
+                      <Button
+                        shape="round"
+                        size="small"
+                        className="text-gray-500 hover:text-blue-500 ml-auto bg-gray-200 shadow-sm"
+                        onClick={() => handleContinue(msg)}
+                      >
+                        继续生成
+                      </Button>
+                    )}
                   </div>
                 )}
+
                 {/* AI溯源*/}
                 {msg.role === 'assistant' &&
                   msg.sources &&

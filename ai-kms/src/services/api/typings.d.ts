@@ -1,8 +1,12 @@
 declare namespace API {
   type ChatRequest = {
+    /** 接收继续生成的信号和上下文 */
+    isContinue?: boolean;
     /** 接收前端传来的知识库 ID */
     kbId?: number;
     message: string;
+    /** 已经生成的前半截内容 */
+    partialContent?: string;
     sessionId?: number;
   };
 

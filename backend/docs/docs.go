@@ -40,7 +40,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/controllers.ChatRequest"
+                            "$ref": "#/definitions/models.ChatRequest"
                         }
                     }
                 ],
@@ -663,24 +663,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "controllers.ChatRequest": {
-            "type": "object",
-            "required": [
-                "message"
-            ],
-            "properties": {
-                "kbId": {
-                    "description": "接收前端传来的知识库 ID",
-                    "type": "integer"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "sessionId": {
-                    "type": "integer"
-                }
-            }
-        },
         "controllers.LoginRequest": {
             "type": "object",
             "required": [
@@ -750,6 +732,32 @@ const docTemplate = `{
                 "newUsername": {
                     "type": "string",
                     "example": "super_admin"
+                }
+            }
+        },
+        "models.ChatRequest": {
+            "type": "object",
+            "required": [
+                "message"
+            ],
+            "properties": {
+                "isContinue": {
+                    "description": "接收继续生成的信号和上下文",
+                    "type": "boolean"
+                },
+                "kbId": {
+                    "description": "接收前端传来的知识库 ID",
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "partialContent": {
+                    "description": "已经生成的前半截内容",
+                    "type": "string"
+                },
+                "sessionId": {
+                    "type": "integer"
                 }
             }
         },

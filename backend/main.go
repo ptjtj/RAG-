@@ -79,6 +79,8 @@ func main() {
 		protected.POST("/kb/:kb_id/upload", controllers.UploadDocument)
 		// ==== 智能对话 ====
 		protected.POST("/chat", controllers.StreamChat)
+		// 给 SimpleChat 安排一个专属的测试接口地址
+		//protected.POST("/chat/simple", controllers.SimpleChat)
 		protected.GET("/sessions", controllers.GetSessions)
 		protected.POST("/sessions", controllers.CreateSession)
 		protected.GET("/sessions/:id/messages", controllers.GetSessionMessages)

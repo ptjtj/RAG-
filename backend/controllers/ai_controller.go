@@ -6,6 +6,7 @@ import (
 	"backend/services"
 	"context"
 	"encoding/json"
+	"strings"
 
 	"fmt"
 	"net/http"
@@ -74,11 +75,24 @@ func SimpleChat(c *gin.Context) {
 		modelName = "deepseek-chat" // 兜底默认值
 	}
 
-	client, err := services.GetChatClint()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "系统未配置大模型 API Key，请联系管理员配置"})
+	var baseURL, apiKey string
+
+	if strings.HasPrefix(modelName, "deepseek") {
+		baseURL = "https://api.deepseek.com/v1"
+		apiKey = services.GetSysConfig("deepseek_api_key")
+	} else if strings.HasPrefix(modelName, "glm") {
+		baseURL = "https://open.bigmodel.cn/api/paas/v4"
+		apiKey = services.GetSysConfig("zhipu_api_key")
+	}
+
+	if apiKey == "" {
+		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "系统未配置该模型的 API Key，请前往【系统设置】进行配置！"})
 		return
 	}
+
+	aiConfig := openai.DefaultConfig(apiKey)
+	aiConfig.BaseURL = baseURL
+	client := openai.NewClientWithConfig(aiConfig)
 	//组装大模型请求参数
 	chatReq := openai.ChatCompletionRequest{
 		Model: modelName,
@@ -208,13 +222,23 @@ func StreamChat(c *gin.Context) {
 	if modelName == "" {
 		modelName = "deepseek-reasoner"
 	}
+	//动态分配大模型 API 地址和密钥
+	var baseURL, apiKey string
 
-	client, err := services.GetChatClint()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "系统未配置大模型 API Key"})
+	if strings.HasPrefix(modelName, "deepseek") {
+		baseURL = "https://api.deepseek.com/v1" // DeepSeek 的官方兼容地址
+		apiKey = services.GetSysConfig("deepseek_api_key")
+	} else if strings.HasPrefix(modelName, "glm") {
+		baseURL = "https://open.bigmodel.cn/api/paas/v4" // 智谱 GLM 的官方兼容地址
+		apiKey = services.GetSysConfig("zhipu_api_key")
+	}
+	if apiKey == "" {
+		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "系统未配置该模型的 API Key，请前往【系统设置】进行配置！"})
 		return
 	}
-
+	aiConfig := openai.DefaultConfig(apiKey)
+	aiConfig.BaseURL = baseURL
+	client := openai.NewClientWithConfig(aiConfig)
 	// ================= 组装请求参数并开启 Stream =================
 	messages := []openai.ChatCompletionMessage{
 		{Role: openai.ChatMessageRoleUser, Content: finalPrompt},

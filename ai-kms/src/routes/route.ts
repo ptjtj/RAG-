@@ -1,3 +1,5 @@
+import access from "@/access";
+
 const routes = [
   {
     path: '/',
@@ -22,11 +24,13 @@ const routes = [
     name: '用户管理',
     path: '/userManage',
     component: './userManage',
+    access: 'canAdmin',
   },
   {
     name: '系统设置',
     path: '/settings',
     component: './settings',
+    access: 'canAdmin',
   },
 ];
 

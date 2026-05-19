@@ -56,14 +56,14 @@ func Login(c *gin.Context) {
 	}
 
 	// 签发 2 小时过期的短令牌 (Access Token)
-	accessToken, err := middlewares.GenerateToken(user.Username, 2*time.Hour)
+	accessToken, err := middlewares.GenerateToken(user.ID, user.Username, 2*time.Hour)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "生成 Access Token 失败"})
 		return
 	}
 
 	// 签发 3 天过期的长令牌 (Refresh Token)
-	refreshToken, err := middlewares.GenerateToken(user.Username, 72*time.Hour)
+	refreshToken, err := middlewares.GenerateToken(user.ID, user.Username, 72*time.Hour)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "生成 Refresh Token 失败"})
 		return
@@ -113,8 +113,12 @@ func RefreshToken(c *gin.Context) {
 		return
 	}
 	username := claims["username"].(string)
+	var userID uint
+	if idFloat, ok := claims["userID"].(float64); ok {
+		userID = uint(idFloat)
+	}
 	//长令牌合法,立刻为该用户签发一个全新的 2 小时短令牌
-	newAccessToken, err := middlewares.GenerateToken(username, 2*time.Hour)
+	newAccessToken, err := middlewares.GenerateToken(userID, username, 2*time.Hour)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "刷新 Token 失败"})
 		return

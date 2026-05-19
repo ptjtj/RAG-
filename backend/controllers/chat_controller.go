@@ -18,9 +18,13 @@ import (
 // @Router /sessions [get]
 func GetSessions(c *gin.Context) {
 	var sessions []models.ChatSession
-	// 在真实多用户系统中，应该从 JWT Token 中解析出 UserID。
-	// 目前为了单机演示跑通，默认查询 UserID = 1 的数据
-	result := config.DB.Where("user_id = ?", 1).Order("updated_at desc").Find(&sessions)
+	//从 JWT Token 中解析出 userID
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.Response{Code: 401, Message: "未授权"})
+		return
+	}
+	result := config.DB.Where("user_id = ?", userID).Order("updated_at desc").Find(&sessions)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "获取会话失败"})
 		return
@@ -44,8 +48,9 @@ func CreateSession(c *gin.Context) {
 	if req.Title == "" {
 		req.Title = "新对话"
 	}
+	userID, _ := c.Get("userID")
 	session := models.ChatSession{
-		UserID:          1,
+		UserID:          userID.(uint), //赋值真实用户 ID
 		Title:           req.Title,
 		KnowledgeBaseID: req.KbID,
 	}

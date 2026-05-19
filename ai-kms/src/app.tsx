@@ -6,9 +6,10 @@ import React, { useEffect, useState } from 'react';
 import { postRefresh } from './services/api/renzhengAuth';
 
 //  全局状态初始化：用来判断用户是否登录，没登录就踢回登录页
-export async function getInitialState() {
+export async function getInitialState(): Promise<{currentUser?:any}> {
+
+  const userStr=localStorage.getItem('user');
   const token = localStorage.getItem('accessToken');
-  const userStr = localStorage.getItem('user');
 
   // 如果没有 token 且当前不在登录页，强制跳回登录页
   if (!token && history.location.pathname !== '/login') {

@@ -21,7 +21,13 @@ import (
 // @ID getKnowledgeBases
 func GetKnowledgeBases(c *gin.Context) {
 	var kbs []models.KnowledgeBase
-	config.DB.Order("id desc").Find(&kbs)
+	//获取当前登录用户的 ID
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.Response{Code: 401, Message: "未授权"})
+		return
+	}
+	config.DB.Where("user_id = ?", userID).Order("id desc").Find(&kbs)
 	c.JSON(http.StatusOK, models.Response{Code: 200, Message: "success", Data: kbs})
 }
 
@@ -41,8 +47,9 @@ func CreateKnowledgeBase(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, models.Response{Code: 400, Message: "参数错误: " + err.Error()})
 		return
 	}
-
+	userID, _ := c.Get("userID")
 	kb := models.KnowledgeBase{
+		ID:           userID.(uint),
 		Name:         req.Name,
 		Description:  req.Description,
 		ChunkSize:    req.ChunkSize,

@@ -192,8 +192,10 @@ func UpdateUsername(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, models.Response{Code: 401, Message: "账号状态异常，请退出重新登录后再修改！"})
 		return
 	}
-	accessToken, err1 := middlewares.GenerateToken(req.NewUsername, 2*time.Hour)
-	refreshToken, err2 := middlewares.GenerateToken(req.NewUsername, 7*24*time.Hour)
+	userIDInterface, _ := c.Get("userID")
+	userID := userIDInterface.(uint)
+	accessToken, err1 := middlewares.GenerateToken(userID, req.NewUsername, 2*time.Hour)
+	refreshToken, err2 := middlewares.GenerateToken(userID, req.NewUsername, 7*24*time.Hour)
 	if err1 != nil || err2 != nil {
 		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "生成新令牌失败"})
 		return

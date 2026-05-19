@@ -7,7 +7,7 @@
 export default function access(initialState: {currentUser?:any} | undefined) {
   const {currentUser} =initialState ?? {};
   return {
-    canAdmin: !!currentUser, // 只有管理员能看的权限标识
-    // canUser: true, // 普通用户的权限标识
+    canAdmin: currentUser && currentUser.username==='admin', // 只有管理员能看的权限标识
+   
   };
 }

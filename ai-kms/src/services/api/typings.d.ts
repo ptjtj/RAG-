@@ -18,6 +18,11 @@ declare namespace API {
     systemPrompt?: string;
   };
 
+  type CreateSessionRequest = {
+    kbId?: number;
+    title?: string;
+  };
+
   type deleteDocumentParams = {
     /** 文档 ID */
     doc_id: string;
@@ -28,8 +33,18 @@ declare namespace API {
     id: number;
   };
 
+  type deleteSessionsIdParams = {
+    /** 会话ID */
+    id: number;
+  };
+
   type deleteUsersIdParams = {
     /** 要删除的用户ID */
+    id: number;
+  };
+
+  type getSessionsIdMessagesParams = {
+    /** 会话ID */
     id: number;
   };
 
@@ -53,6 +68,11 @@ declare namespace API {
 
   type putKbIdParams = {
     /** 知识库 ID */
+    id: number;
+  };
+
+  type putSessionsIdParams = {
+    /** 会话ID */
     id: number;
   };
 
@@ -83,6 +103,12 @@ declare namespace API {
   type UpdatePasswordRequest = {
     newPassword: string;
     oldPassword: string;
+  };
+
+  type UpdateSessionRequest = {
+    isPinned?: boolean;
+    /** 使用指针类型 (*string, *bool)：区分前端是传了空值/false，还是根本没传。 */
+    title?: string;
   };
 
   type UpdateUsernameRequest = {

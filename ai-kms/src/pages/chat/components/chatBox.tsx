@@ -12,7 +12,8 @@ import {
   SendOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { request } from '@umijs/max';
+import { getSessionsIdMessages } from '@/services/api/huihuaguanli';
+import { getKnowledgeBases } from '@/services/api/knowledgeBase';
 import {
   Avatar,
   Button,
@@ -69,7 +70,7 @@ const isAtBottomRef = useRef(true);
   useEffect(() => {
     const fetchKbs = async () => {
       try {
-        const res = await request('/kb', { method: 'GET' });
+        const res = await getKnowledgeBases();
         if (res.code === 200 && res.data) {
           setKbList(res.data);
           if (res.data.length > 0) {
@@ -89,9 +90,7 @@ const isAtBottomRef = useRef(true);
       setMessages([]); // 切换会话时，先清空屏幕
       const fetchHistoryMessages = async () => {
         try {
-          const res = await request(`/sessions/${currentSessionId}/messages`, {
-            method: 'GET',
-          });
+          const res = await getSessionsIdMessages({id:currentSessionId});
           //   console.log('前端收到的历史记录响应：', res);
           if (res.code === 200 && res.data && res.data.length > 0) {
             const historyMsgs = res.data.map((m: any) => ({

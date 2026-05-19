@@ -1,4 +1,5 @@
-import { request } from '@umijs/max';
+import { getSessions,postSessions,putSessionsId,deleteSessionsId } from '@/services/api/huihuaguanli';
+
 import { Layout, message, Modal } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 import ChatBox from './components/chatBox';
@@ -18,7 +19,7 @@ export default function ChatPage() {
   const fetchSessions = async () => {
     setIsSidebarLoading(true);
     try {
-      const res = await request('/sessions', { method: 'GET' });
+      const res = await getSessions();
       if (res.code === 200) {
         setSessions(res.data || []);
         // 如果有数据且当前没选中，默认选中第一条
@@ -38,10 +39,7 @@ export default function ChatPage() {
     createLockRef.current = true;
     setIsCreating(true);
     try {
-      const res = await request('/sessions', {
-        method: 'POST',
-        data: { title: '新对话', kbId: 1 }, // 默认kbId，后续可再从 ChatBox 往上提状态，目前够用了
-      });
+      const res = await postSessions({ title: '新对话', kbId: 1 });
       if (res.code === 200) {
         messageApi.success('已开启新对话');
         fetchSessions();
@@ -64,7 +62,7 @@ export default function ChatPage() {
       cancelText: '取消',
       onOk: async () => {
         try {
-          const res = await request(`/sessions/${id}`, { method: 'DELETE' });
+          const res = await deleteSessionsId({id});
           if (res.code === 200) {
             messageApi.success('删除成功');
             // 如果删掉的正好是当前正在聊的，就把当前 ID 清空
@@ -96,14 +94,28 @@ export default function ChatPage() {
         onCreateSession={handleCreateSession}
         isCreating={isCreating}
         onDeleteSession={handleDeleteSession}
-       
+        onRenameSession={async (id, newTitle) => {
+          try {
+            await putSessionsId({ id }, { title: newTitle });
+            fetchSessions();
+          } catch (error) {
+            message.error('重命名失败');
+          }
+        }}
+        onPinSession={async (id, isPinned) => {
+          try {
+            await putSessionsId({ id }, { isPinned: isPinned });
+            fetchSessions();
+          } catch (error) {
+            message.error('置顶操作失败');
+          }
+        }}
       />
 
       <ChatBox
         currentSessionId={currentSessionId}
         onRefreshSessions={fetchSessions}
       />
-     
     </Layout>
   );
 }

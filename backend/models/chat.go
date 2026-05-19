@@ -1,6 +1,16 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
+
+// 新建一个对话会话
+type CreateSessionRequest struct {
+	Title string `json:"title"`
+	KbID  uint   `json:"kbId"`
+}
 
 // ChatRequest 接收前端提问的结构体
 type ChatRequest struct {
@@ -12,12 +22,14 @@ type ChatRequest struct {
 	PartialContent string `json:"partialContent"` // 已经生成的前半截内容
 }
 type ChatSession struct {
-	ID              uint      `gorm:"primary_key" json:"id"`
-	UserID          uint      `json:"user_id"`
-	Title           string    `json:"title"`
-	KnowledgeBaseID uint      `json:"kbId"` // 当前会话绑定的知识库 ID
-	CreatedAt       time.Time `json:"createdAt"`
-	UpdatedAt       time.Time `json:"updatedAt"`
+	ID              uint           `gorm:"primary_key" json:"id"`
+	UserID          uint           `json:"user_id"`
+	Title           string         `json:"title"`
+	KnowledgeBaseID uint           `json:"kbId"` // 当前会话绑定的知识库 ID
+	CreatedAt       time.Time      `json:"createdAt"`
+	UpdatedAt       time.Time      `json:"updatedAt"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+	IsPinned        bool           `gorm:"default:false" json:"isPinned"` //置顶字段
 }
 
 type ChatMessage struct {
@@ -26,4 +38,11 @@ type ChatMessage struct {
 	Role      string    `json:"role" `
 	Content   string    `gorm:"type:text" json:"content"`
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+// UpdateSessionRequest 更新会话请求参数
+type UpdateSessionRequest struct {
+	//  使用指针类型 (*string, *bool)：区分前端是传了空值/false，还是根本没传。
+	Title    *string `json:"title" example:"新的会话标题"`
+	IsPinned *bool   `json:"isPinned" example:"true"`
 }

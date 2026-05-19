@@ -81,6 +81,13 @@ definitions:
     required:
     - name
     type: object
+  models.CreateSessionRequest:
+    properties:
+      kbId:
+        type: integer
+      title:
+        type: string
+    type: object
   models.KnowledgeBase:
     properties:
       chunkSize:
@@ -127,6 +134,16 @@ definitions:
         type: string
     required:
     - name
+    type: object
+  models.UpdateSessionRequest:
+    properties:
+      isPinned:
+        example: true
+        type: boolean
+      title:
+        description: 使用指针类型 (*string, *bool)：区分前端是传了空值/false，还是根本没传。
+        example: 新的会话标题
+        type: string
     type: object
 host: localhost:8080
 info:
@@ -412,6 +429,110 @@ paths:
       summary: 注册新用户 (添加用户)
       tags:
       - 认证 (Auth)
+  /sessions:
+    get:
+      consumes:
+      - application/json
+      description: 按时间降序获取历史会话
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: 获取会话列表
+      tags:
+      - 会话管理
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新的空白聊天会话
+      parameters:
+      - description: 新建参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateSessionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: 新建会话
+      tags:
+      - 会话管理
+  /sessions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除整个会话及其关联的所有消息
+      parameters:
+      - description: 会话ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: 删除会话
+      tags:
+      - 会话管理
+    put:
+      consumes:
+      - application/json
+      description: 支持局部更新会话的标题或置顶状态
+      parameters:
+      - description: 会话ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateSessionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: 更新会话信息
+      tags:
+      - 会话管理
+  /sessions/{id}/messages:
+    get:
+      consumes:
+      - application/json
+      description: 根据会话ID获取该会话下的所有聊天消息
+      parameters:
+      - description: 会话ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/models.Response'
+      summary: 获取聊天记录
+      tags:
+      - 会话管理
   /user/avatar:
     delete:
       consumes:

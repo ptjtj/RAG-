@@ -2,9 +2,10 @@ module.exports = {
   content: [
     // 告诉 Tailwind 去哪里寻找你使用了原子类的文件
     './src/**/*.{js,jsx,ts,tsx}',
-    // 严禁 Tailwind 扫描 OpenAPI 自动生成的巨大文件和缓存！
-    '!./src/services/api/**/*',
-    '!./src/.umi/**/*',
+    '!./src/.umi/**/*', // 排除 Umi 开发环境缓存
+    '!./src/.umi-production/**/*', // 排除 Umi 生产环境缓存
+    '!./src/services/api/**/*', // 排除 OpenAPI 自动生成的巨型接口文件
+    '!./node_modules/**/*', 
   ],
   theme: {
     extend: {},

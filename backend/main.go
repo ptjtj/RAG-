@@ -83,6 +83,7 @@ func main() {
 		protected.POST("/sessions", controllers.CreateSession)
 		protected.GET("/sessions/:id/messages", controllers.GetSessionMessages)
 		protected.DELETE("/sessions/:id", controllers.DeleteSession)
+		protected.PUT("/sessions/:id", controllers.UpdateSession)
 		// ==== 系统配置 ====
 		protected.GET("/configs", controllers.GetConfigs)
 		protected.PUT("/configs", controllers.UpdateConfig)

@@ -38,6 +38,7 @@ type ChatMessage struct {
 	Role      string    `json:"role" `
 	Content   string    `gorm:"type:text" json:"content"`
 	CreatedAt time.Time `json:"createdAt"`
+	Tokens    int       `json:"token" gorm:"default:0"`
 }
 
 // UpdateSessionRequest 更新会话请求参数

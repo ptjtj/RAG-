@@ -253,6 +253,8 @@ func StreamChat(c *gin.Context) {
 		Model:    modelName,
 		Messages: messages,
 		Stream:   true, // 开启流式开关
+		//强制要求流式返回的最后一个数据包中带有 Token 统计
+		StreamOptions: &openai.StreamOptions{IncludeUsage: true},
 	}
 
 	stream, err := client.CreateChatCompletionStream(c.Request.Context(), chatReq)
@@ -271,6 +273,7 @@ func StreamChat(c *gin.Context) {
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
 
 	var fullAnswer string //  准备一个空杯子，用来一点点收集大模型的完整正式回答
+	var totalTokens int
 
 	// =================  循环读取流，实时推给前端 =================
 	for {
@@ -289,6 +292,7 @@ func StreamChat(c *gin.Context) {
 						SessionID: req.SessionID,
 						Role:      "assistant",
 						Content:   fullAnswer,
+						Tokens:    totalTokens,
 					}
 					config.DB.Create(&aiMsg)
 				}
@@ -300,7 +304,7 @@ func StreamChat(c *gin.Context) {
 		response, err := stream.Recv()
 		// 如果读到末尾 EOF，或者发生异常
 		if err != nil {
-			// 1. 发送结束标志和溯源数据给前端
+			// 发送结束标志和溯源数据给前端
 			sourcesJSON, _ := json.Marshal(sources)
 			c.Writer.Write([]byte(fmt.Sprintf("data: {\"type\":\"done\", \"sources\": %s}\n\n", string(sourcesJSON))))
 			if flusher, ok := c.Writer.(http.Flusher); ok {
@@ -322,36 +326,41 @@ func StreamChat(c *gin.Context) {
 						SessionID: req.SessionID,
 						Role:      "assistant",
 						Content:   fullAnswer,
+						Tokens:    totalTokens,
 					}
 					config.DB.Create(&aiMsg)
 				}
 			}
 			return // 彻底结束接口
 		}
-
+		if response.Usage != nil {
+			totalTokens = response.Usage.TotalTokens
+		}
 		// 拿到大模型刚刚吐出来的一个“字”或“片段”
 		delta := response.Choices[0].Delta
-
-		//  情景 A：如果是大模型的“思维链思考过程”
-		if delta.ReasoningContent != "" {
-			escapedReasoning, _ := json.Marshal(delta.ReasoningContent) // 自动带上双引号并转义换行符
-			c.Writer.Write([]byte(fmt.Sprintf("data: {\"type\":\"reasoning\", \"content\":%s}\n\n", string(escapedReasoning))))
-			if flusher, ok := c.Writer.(http.Flusher); ok {
-				flusher.Flush()
-			} else {
-				c.Writer.Flush()
+		if len(response.Choices) > 0 {
+			delta = response.Choices[0].Delta
+			//  情景 A：如果是大模型的“思维链思考过程”
+			if delta.ReasoningContent != "" {
+				escapedReasoning, _ := json.Marshal(delta.ReasoningContent) // 自动带上双引号并转义换行符
+				c.Writer.Write([]byte(fmt.Sprintf("data: {\"type\":\"reasoning\", \"content\":%s}\n\n", string(escapedReasoning))))
+				if flusher, ok := c.Writer.(http.Flusher); ok {
+					flusher.Flush()
+				} else {
+					c.Writer.Flush()
+				}
 			}
-		}
 
-		// 情景 B：如果是大模型的“最终正式回答”
-		if delta.Content != "" {
-			fullAnswer += delta.Content // 把它装进杯子里存起来（后端用）
-			escapedContent, _ := json.Marshal(delta.Content)
-			c.Writer.Write([]byte(fmt.Sprintf("data: {\"type\":\"answer\", \"content\":%s}\n\n", string(escapedContent))))
-			if flusher, ok := c.Writer.(http.Flusher); ok {
-				flusher.Flush()
-			} else {
-				c.Writer.Flush()
+			// 情景 B：如果是大模型的“最终正式回答”
+			if delta.Content != "" {
+				fullAnswer += delta.Content // 把它装进杯子里存起来（后端用）
+				escapedContent, _ := json.Marshal(delta.Content)
+				c.Writer.Write([]byte(fmt.Sprintf("data: {\"type\":\"answer\", \"content\":%s}\n\n", string(escapedContent))))
+				if flusher, ok := c.Writer.(http.Flusher); ok {
+					flusher.Flush()
+				} else {
+					c.Writer.Flush()
+				}
 			}
 		}
 	}

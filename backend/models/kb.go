@@ -10,6 +10,7 @@ import (
 // KnowledgeBase 知识库模型
 type KnowledgeBase struct {
 	ID          uint           `gorm:"primarykey" json:"id"`
+	UserID      uint           `json:"userId"`
 	CreatedAt   time.Time      `json:"createdAt"`
 	UpdatedAt   time.Time      `json:"updatedAt"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`

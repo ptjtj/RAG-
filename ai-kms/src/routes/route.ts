@@ -32,6 +32,12 @@ const routes = [
     component: './settings',
     access: 'canAdmin',
   },
+  {
+    name: '数据看板',
+    path: '/dashboard',
+    component: './dashboard',
+    access: 'canAdmin',
+  },
 ];
 
 export default routes;

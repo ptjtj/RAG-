@@ -135,6 +135,58 @@
                 "responses": {}
             }
         },
+        "/dashboard": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "统计系统的文档总数、用户总数、今日提问次数以及近7天的Token消耗与虚拟成本趋势",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "数据看板 (Dashboard)"
+                ],
+                "summary": "获取系统数据大屏设计",
+                "responses": {
+                    "200": {
+                        "description": "获取成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.DashboardStatsData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "未授权",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "系统内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/docs/{doc_id}": {
             "delete": {
                 "description": "删除文档记录、关联的切片数据以及本地物理文件",
@@ -945,6 +997,45 @@
                 }
             }
         },
+        "models.DailyTokenStat": {
+            "type": "object",
+            "properties": {
+                "cost": {
+                    "type": "number",
+                    "example": 0.256
+                },
+                "date": {
+                    "type": "string",
+                    "example": "2020-01-01"
+                },
+                "totalTokens": {
+                    "type": "integer",
+                    "example": 1234
+                }
+            }
+        },
+        "models.DashboardStatsData": {
+            "type": "object",
+            "properties": {
+                "costTrend": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DailyTokenStat"
+                    }
+                },
+                "todayChats": {
+                    "type": "integer",
+                    "example": 156
+                },
+                "totalDocs": {
+                    "type": "integer"
+                },
+                "totalUsers": {
+                    "type": "integer",
+                    "example": 12
+                }
+            }
+        },
         "models.KnowledgeBase": {
             "type": "object",
             "properties": {
@@ -975,6 +1066,9 @@
                 },
                 "updatedAt": {
                     "type": "string"
+                },
+                "userId": {
+                    "type": "integer"
                 }
             }
         },

@@ -49,7 +49,7 @@ func CreateKnowledgeBase(c *gin.Context) {
 	}
 	userID, _ := c.Get("userID")
 	kb := models.KnowledgeBase{
-		ID:           userID.(uint),
+		UserID:       userID.(uint),
 		Name:         req.Name,
 		Description:  req.Description,
 		ChunkSize:    req.ChunkSize,

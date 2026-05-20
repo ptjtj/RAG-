@@ -23,6 +23,19 @@ declare namespace API {
     title?: string;
   };
 
+  type DailyTokenStat = {
+    cost?: number;
+    date?: string;
+    totalTokens?: number;
+  };
+
+  type DashboardStatsData = {
+    costTrend?: DailyTokenStat[];
+    todayChats?: number;
+    totalDocs?: number;
+    totalUsers?: number;
+  };
+
   type deleteDocumentParams = {
     /** 文档 ID */
     doc_id: string;
@@ -59,6 +72,7 @@ declare namespace API {
     /** 系统提示词字段 */
     systemPrompt?: string;
     updatedAt?: string;
+    userId?: number;
   };
 
   type LoginRequest = {

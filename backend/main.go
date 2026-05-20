@@ -90,6 +90,8 @@ func main() {
 		protected.GET("/configs", controllers.GetConfigs)
 		protected.PUT("/configs", controllers.UpdateConfig)
 		protected.POST("/configs/batch", controllers.BatchUpdateConfigs)
+		//=== 数据看板 ====
+		protected.GET("/dashboard", controllers.GetDashboardStats)
 		// ==== 测试接口 ====
 		protected.POST("/test-embedding", controllers.TestEmbedding)
 		//注册删除文档的路由

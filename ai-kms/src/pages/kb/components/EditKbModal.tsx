@@ -46,7 +46,7 @@ export default function EditKbModal({open,kbId,initialValues,onCancel,onSuccess}
       onCancel={onCancel}
       okText="保存修改"
       cancelText="取消"
-      destroyOnClose
+      // destroyOnClose
     >
       <Form form={form} layout="vertical" className="mt-4">
         <Form.Item

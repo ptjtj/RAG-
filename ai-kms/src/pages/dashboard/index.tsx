@@ -6,6 +6,7 @@ import {
 } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
+import { Empty } from 'antd';
 
 export default function Dashboard() {
   const [stats, setStats] = useState<any>({});
@@ -94,7 +95,7 @@ export default function Dashboard() {
       }
     ]
   };
-
+const hasChartData=stats?.costTrend && stats.costTrend.length >0;
   return (
     <div className="w-full min-h-screen bg-[#F5F5F7] p-8 font-sans box-border">
       {/* 头部标题区 */}
@@ -160,14 +161,24 @@ export default function Dashboard() {
           </div>
         </div>
 
-      
         <div className="h-[400px] w-full">
-          {!loading && stats?.costTrend && (
-            <ReactECharts
-              option={costChartOption}
-              style={{ height: '100%', width: '100%' }}
-            />
-          )}
+          {!loading ? (
+            hasChartData ? (
+              <ReactECharts
+                option={costChartOption}
+                style={{ height: '100%', width: '100%' }}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_DEFAULT}
+                  description={
+                    <span className="text-[#86868B]">近 7 天暂无消耗数据</span>
+                  }
+                />
+              </div>
+            )
+          ) : null}
         </div>
       </div>
     </div>

@@ -149,6 +149,21 @@ definitions:
     type: object
   models.SysConfig:
     type: object
+  models.TempFileResponse:
+    properties:
+      fileId:
+        description: 唯一文件ID
+        example: temp_1715849201.pdf
+        type: string
+      fileName:
+        description: 原始文件名
+        example: 需求文档.pdf
+        type: string
+      url:
+        description: 访问路径
+        example: /uploads/temp_1715849201.pdf
+        type: string
+    type: object
   models.UpdateKBRequest:
     properties:
       description:
@@ -592,6 +607,42 @@ paths:
       summary: 获取聊天记录
       tags:
       - 会话管理
+  /upload/temp:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 用户在对话框上传临时文件（PDF/Word/Excel等），不存入全局知识库，仅供当前会话大模型分析使用。
+      parameters:
+      - description: 需要上传的文件 (最大 10MB)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 上传成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.TempFileResponse'
+              type: object
+        "400":
+          description: 获取文件失败或格式错误
+          schema:
+            $ref: '#/definitions/models.Response'
+        "500":
+          description: 服务器保存文件失败
+          schema:
+            $ref: '#/definitions/models.Response'
+      security:
+      - BearerAuth: []
+      summary: 上传临时会话附件
+      tags:
+      - 智能对话
   /user/avatar:
     delete:
       consumes:

@@ -8,10 +8,8 @@ import { PageContainer } from '@ant-design/pro-components';
 import {
   Button,
   Empty,
-  MenuProps,
   message,
   Spin,
-  Typography,
 } from 'antd';
 import { useEffect, useState } from 'react';
 import CreateKbModal from './components/CreateKbModal';

@@ -96,6 +96,8 @@ func main() {
 		protected.POST("/test-embedding", controllers.TestEmbedding)
 		//注册删除文档的路由
 		protected.DELETE("/docs/:doc_id", controllers.DeleteDocument)
+
+		protected.POST("/upload/temp", controllers.UploadTempFile)
 	}
 
 	log.Fatal(r.Run(":8080"))

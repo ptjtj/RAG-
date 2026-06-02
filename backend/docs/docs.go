@@ -665,6 +665,67 @@ const docTemplate = `{
                 }
             }
         },
+        "/upload/temp": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "用户在对话框上传临时文件（PDF/Word/Excel等），不存入全局知识库，仅供当前会话大模型分析使用。",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "智能对话"
+                ],
+                "summary": "上传临时会话附件",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "需要上传的文件 (最大 10MB)",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "上传成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.TempFileResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "获取文件失败或格式错误",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器保存文件失败",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/user/avatar": {
             "post": {
                 "security": [
@@ -1092,6 +1153,26 @@ const docTemplate = `{
         },
         "models.SysConfig": {
             "type": "object"
+        },
+        "models.TempFileResponse": {
+            "type": "object",
+            "properties": {
+                "fileId": {
+                    "description": "唯一文件ID",
+                    "type": "string",
+                    "example": "temp_1715849201.pdf"
+                },
+                "fileName": {
+                    "description": "原始文件名",
+                    "type": "string",
+                    "example": "需求文档.pdf"
+                },
+                "url": {
+                    "description": "访问路径",
+                    "type": "string",
+                    "example": "/uploads/temp_1715849201.pdf"
+                }
+            }
         },
         "models.UpdateKBRequest": {
             "type": "object",

@@ -1,4 +1,8 @@
 import MarkdownBlock from '@/components/markdownBlock';
+import { getSessionsIdMessages } from '@/services/api/huihuaguanli';
+
+import { postUploadTemp } from '@/services/api/zhinengduihua';
+import { getKnowledgeBases } from '@/services/api/knowledgeBase';
 import {
   CheckCircleFilled,
   CheckOutlined,
@@ -7,13 +11,12 @@ import {
   EditOutlined,
   FileTextOutlined,
   LoadingOutlined,
+  PaperClipOutlined,
   PauseCircleOutlined,
   RobotOutlined,
   SendOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { getSessionsIdMessages } from '@/services/api/huihuaguanli';
-import { getKnowledgeBases } from '@/services/api/knowledgeBase';
 import {
   Avatar,
   Button,
@@ -24,6 +27,7 @@ import {
   Select,
   Tag,
   Tooltip,
+  Upload,
 } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 
@@ -38,13 +42,27 @@ interface Message {
   thinkingTime?: number; // 思考耗时(秒)
   isStopped?: boolean;
   sources?: { title: string; score: number }[];
+  attachedFile?:{id:string;name:string};
 }
 
 interface ChatBoxProps {
   currentSessionId: number | null; // 接收父组件传来的当前会话 ID
   onRefreshSessions: () => void;
 }
-
+// 定义预设的快捷指令列表;
+const QUICK_COMMANDS = [
+  {
+    icon: '📝',
+    title: '总结长文',
+    prompt: '请帮我提炼以下内容的三个核心要点：\n',
+  },
+  {
+    icon: '🌐',
+    title: '中英互译',
+    prompt: '请将以下内容翻译为地道专业的英文：\n',
+  },
+  { icon: '💻', title: '代码解释', prompt: '请逐行解释以下代码的运行逻辑：\n' },
+];
 export default function ChatBox({
   currentSessionId,
   onRefreshSessions,
@@ -52,10 +70,16 @@ export default function ChatBox({
   const [messageApi, contextHolder] = message.useMessage();
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingFile, setPendingFile] = useState<{
+    id: string;
+    name: string;
+    url?: string;
+  } | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   //获取滚动容器的 DOM
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-const isAtBottomRef = useRef(true);
+  const isAtBottomRef = useRef(true);
   const [kbList, setKbList] = useState<any[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedKbId, setSelectedKbId] = useState<number | undefined>(
@@ -73,9 +97,9 @@ const isAtBottomRef = useRef(true);
         const res = await getKnowledgeBases();
         if (res.code === 200 && res.data) {
           setKbList(res.data);
-          if (res.data.length > 0) {
-            setSelectedKbId(res.data[0].id);
-          }
+          // if (res.data.length > 0) {
+          //   setSelectedKbId(res.data[0].id);
+          // }
         }
       } catch (error) {
         messageApi.error('获取知识库列表失败');
@@ -90,7 +114,7 @@ const isAtBottomRef = useRef(true);
       setMessages([]); // 切换会话时，先清空屏幕
       const fetchHistoryMessages = async () => {
         try {
-          const res = await getSessionsIdMessages({id:currentSessionId});
+          const res = await getSessionsIdMessages({ id: currentSessionId });
           //   console.log('前端收到的历史记录响应：', res);
           if (res.code === 200 && res.data && res.data.length > 0) {
             const historyMsgs = res.data.map((m: any) => ({
@@ -117,24 +141,41 @@ const isAtBottomRef = useRef(true);
     }
   }, [currentSessionId]);
 
-  //  自动滚动 
-  const handleScroll=()=>{
-      if (!scrollContainerRef.current) return;
-      const { scrollTop, scrollHeight, clientHeight } =
-        scrollContainerRef.current;
-      // 如果距离底部小于 150px，我们就认为用户在底部；否则说明用户往上滑了
-      isAtBottomRef.current = scrollHeight - scrollTop - clientHeight < 150;
+  //  自动滚动
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } =
+      scrollContainerRef.current;
+    // 如果距离底部小于 150px，我们就认为用户在底部；否则说明用户往上滑了
+    isAtBottomRef.current = scrollHeight - scrollTop - clientHeight < 150;
   };
   const scrollToBottom = () => {
-    if(isAtBottomRef.current){
+    if (isAtBottomRef.current) {
       // 注意：流式高频输出时，'smooth' 会导致动画堆积卡顿，改为 'auto' 瞬间贴底会更丝滑
       messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
     }
-  
   };
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+  //控制快捷菜单显示的状态;
+  const [showCommands, setShowCommands] = useState(false);
+  const handleInputChange = (e: any) => {
+    const val = e.target.value;
+    setInputValue(val);
+    // 如果输入的刚好是一个 "/"，就触发菜单
+    if (val === '/') {
+      setShowCommands(true);
+    } else {
+      setShowCommands(false);
+    }
+  };
+  //点击快捷指令的回调
+  const handleSelectCommand = (prompt: string) => {
+    setInputValue(prompt);
+    setShowCommands(false);
+    //让输入框重新聚焦
+  };
   //会话停止
   const handleStop = () => {
     isStoppingRef.current = true;
@@ -146,18 +187,22 @@ const isAtBottomRef = useRef(true);
   // 发送消息逻辑 流式发送与解析引擎
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading) return;
-    isAtBottomRef.current=true;
+    isAtBottomRef.current = true;
     isStoppingRef.current = false;
     abortControllerRef.current = new AbortController();
 
     const userText = inputValue.trim();
+    const fileIdToSend=pendingFile?.id;
+    const uiAttachedFile=pendingFile ? {id:pendingFile.id,name:pendingFile.name}:undefined;
     setInputValue('');
     setIsLoading(true);
+    setPendingFile(null);
 
     const newUserMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: userText,
+      attachedFile: uiAttachedFile,
     };
     setMessages((prev) => [...prev, newUserMsg]);
 
@@ -187,6 +232,7 @@ const isAtBottomRef = useRef(true);
           message: userText,
           kbId: selectedKbId || 0,
           sessionId: currentSessionId,
+          tempFileId:fileIdToSend || "",
         }),
         signal: abortControllerRef.current.signal, // 支持中途打断
       });
@@ -452,15 +498,19 @@ const isAtBottomRef = useRef(true);
       <div className="bg-white border-b border-gray-100 p-3 shadow-sm z-10 flex items-center justify-center">
         <span className="text-gray-500 font-medium mr-3">当前挂载知识库：</span>
         <Select
-          value={selectedKbId}
-          onChange={(val) => setSelectedKbId(val)}
+          value={selectedKbId || 0}
+          onChange={(val) => setSelectedKbId(val === 0 ? undefined : val)}
+          variant="borderless"
           placeholder="请选择要提问的知识库（不选则为纯AI对话）"
-          className="w-64"
+          className="w-64 bg-gray-50 rounded-md"
           allowClear
-          options={kbList.map((kb) => ({
-            label: kb.name,
-            value: kb.id,
-          }))}
+          options={[
+            { label: '不使用知识库 (纯AI对话)', value: 0 },
+            ...kbList.map((kb) => ({
+              label: kb.name,
+              value: kb.id,
+            })),
+          ]}
         />
       </div>
       <div
@@ -500,7 +550,22 @@ const isAtBottomRef = useRef(true);
                   }`}
                 >
                   {msg.role === 'user' ? (
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                    <div className="flex flex-col items-end gap-2">
+                      {/* 如果这条消息带了附件，就渲染一个精美的文件卡片 */}
+                      {msg.attachedFile && (
+                        <div className="flex items-center gap-2 bg-white/80 border border-gray-200 shadow-sm rounded-lg px-3 py-2 w-fit">
+                          <FileTextOutlined className="text-blue-500 text-lg" />
+                          <span className="text-sm text-gray-700 max-w-[200px] truncate font-medium">
+                            {msg.attachedFile.name}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* 正常的文本消息 */}
+                      {msg.content && (
+                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                      )}
+                    </div>
                   ) : (
                     <div className="flex flex-col gap-3 w-full">
                       {/* 思维链折叠面板 */}
@@ -555,8 +620,10 @@ const isAtBottomRef = useRef(true);
                               <MarkdownBlock content={msg.content} />
                               {/* 当处于思考中（包含继续生成等待阶段），显示动态跳动的省略号 */}
                               {msg.isThinking && (
-                                <div className='inline-flex items-center gap-1 mt-2 px-3 py-1.5  border border-gray-100
-                                rounded-full shadow-sm'>
+                                <div
+                                  className="inline-flex items-center gap-1 mt-2 px-3 py-1.5  border border-gray-100
+                                rounded-full shadow-sm"
+                                >
                                   <span
                                     className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"
                                     style={{ animationDelay: '0ms' }}
@@ -671,44 +738,144 @@ const isAtBottomRef = useRef(true);
           <div ref={messagesEndRef} />
         </div>
       </div>
-
-      <div className="bg-white  p-4 pb-8">
-        <div className="max-w-4xl mx-auto flex items-end gap-3 bg-[#f4f6f8] rounded-3xl p-2.5 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
-          <Input.TextArea
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="向知识库提问 (Shift + Enter 换行)..."
-            autoSize={{ minRows: 1, maxRows: 6 }}
-            variant="borderless"
-            className="flex-1 bg-transparent !shadow-none resize-none px-3 py-1.5 text-base"
-            onPressEnter={(e) => {
-              if (!e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-          />
-          {isLoading ? (
-            <Button
-              type="primary"
-              danger
-              shape="circle"
-              size="large"
-              className="mb-1 flex-shrink-0 bg-white border-none shadow-sm text-gray-600"
-              icon={<PauseCircleOutlined />}
-              onClick={handleStop}
-            />
-          ) : (
-            <Button
-              type="primary"
-              shape="circle"
-              size="large"
-              className="bg-blue-600 mb-1 flex-shrink-0"
-              icon={<SendOutlined />}
-              disabled={!inputValue.trim()}
-              onClick={handleSend}
-            />
+      <div className="w-full bg-white px-4 pb-6 pt-2">
+        <div className="max-w-4xl mx-auto relative">
+          {/* 快捷指令浮动菜单 */}
+          {showCommands && (
+            <div className="absolute bottom-full left-0 mb-3 w-64 bg-white/90 backdrop-blur-md border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.08)] rounded-2xl overflow-hidden z-50 animate-fade-in-up">
+              <div className="px-3 py-2 text-xs font-semibold text-gray-400 bg-gray-50/50">
+                快捷指令 (按 Esc 关闭)
+              </div>
+              <div className="p-1">
+                {QUICK_COMMANDS.map((cmd, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => handleSelectCommand(cmd.prompt)}
+                    className="flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 cursor-pointer rounded-xl transition-colors text-sm text-gray-700 hover:text-blue-600"
+                  >
+                    <span className="text-base bg-white shadow-sm w-7 h-7 rounded-full flex items-center justify-center">
+                      {cmd.icon}
+                    </span>
+                    <span className="font-medium">{cmd.title}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
+          {/*  待发送文件展示区（悬浮在输入框左上角） */}
+          {pendingFile && (
+            <div className="absolute bottom-full left-4 mb-2 z-10 flex items-center gap-2 bg-white/90 backdrop-blur-md border border-gray-200 shadow-sm rounded-lg px-3 py-1.5 animate-fade-in-up">
+              <FileTextOutlined className="text-blue-500" />
+              <span className="text-sm text-gray-700 max-w-[150px] truncate">
+                {pendingFile.name}
+              </span>
+              <Button
+                type="text"
+                size="small"
+                className="text-gray-400 hover:text-red-500 flex items-center justify-center -mr-2"
+                icon={<span className="text-xs">✕</span>}
+                onClick={() => setPendingFile(null)} // 点击叉号取消发送
+              />
+            </div>
+          )}
+
+          <div className="flex items-end gap-2 bg-[#f4f6f8] rounded-3xl p-2 focus-within:ring-2 focus-within:ring-blue-100 transition-all border border-transparent focus-within:border-blue-200 shadow-inner text-base">
+            {/* 使用 Upload 组件接管原本的 Button */}
+            <Upload
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
+              showUploadList={false}
+              customRequest={async (options) => {
+                const { file, onSuccess, onError } = options;
+                try {
+                  setIsUploading(true);
+                  const res = await postUploadTemp({}, file as File);
+                  if (res && res.code === 200) {
+                    onSuccess?.(res);
+                  } else {
+                    onError?.(new Error(res?.message || '上传失败'));
+                  }
+                } catch (error) {
+                  onError?.(error as Error);
+                }
+              }}
+              onChange={(info) => {
+                if (info.file.status === 'done') {
+                  setIsUploading(false);
+                  const res = info.file.response as any;
+                  if (res && res.code === 200) {
+                    messageApi.success(`${info.file.name} 解析准备就绪`);
+                    // 把后端返回的 fileId 存起来
+                    setPendingFile({
+                      id: res.data?.fileId || '',
+                      name: info.file.name,
+                    });
+                  }
+                } else if (info.file.status === 'error') {
+                  setIsUploading(false);
+                  messageApi.error(`${info.file.name} 上传异常`);
+                }
+              }}
+            >
+              <Tooltip title="上传文件 (PDF/Doc/Excel)">
+                <Button
+                  type="text"
+                  shape="circle"
+                  loading={isUploading}
+                  icon={
+                    !isUploading && (
+                      <PaperClipOutlined className="text-xl text-gray-400 hover:text-blue-500 transition-colors" />
+                    )
+                  }
+                  className="mb-1 ml-1 flex-shrink-0"
+                />
+              </Tooltip>
+            </Upload>
+
+            <Input.TextArea
+              value={inputValue}
+              onChange={handleInputChange}
+              placeholder="向知识库提问，或输入 '/' 唤起快捷指令 (Shift + Enter 换行)..."
+              autoSize={{ minRows: 1, maxRows: 6 }}
+              variant="borderless"
+              className="flex-1 bg-transparent !shadow-none resize-none px-3 py-1.5 text-base"
+              onPressEnter={(e) => {
+                if (!e.shiftKey) {
+                  e.preventDefault();
+                  // 如果菜单开着按回车，优先关闭菜单而不是发送
+                  if (showCommands) {
+                    setShowCommands(false);
+                  } else {
+                    handleSend();
+                  }
+                }
+              }}
+              // 按 Esc 关闭菜单
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setShowCommands(false);
+              }}
+            />
+            {isLoading ? (
+              <Button
+                type="primary"
+                danger
+                shape="circle"
+                size="large"
+                className="mb-1 flex-shrink-0 bg-white border-none shadow-sm text-gray-600"
+                icon={<PauseCircleOutlined />}
+                onClick={handleStop}
+              />
+            ) : (
+              <Button
+                type="primary"
+                shape="circle"
+                size="large"
+                className="bg-blue-600 mb-1 flex-shrink-0"
+                icon={<SendOutlined />}
+                disabled={!inputValue.trim()}
+                onClick={handleSend}
+              />
+            )}
+          </div>
         </div>
         <div className="text-center text-xs text-gray-400 mt-4">
           AI 可能会产生误导性信息，请结合引用的知识库文档进行核实!

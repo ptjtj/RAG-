@@ -20,6 +20,8 @@ type ChatRequest struct {
 	// 接收继续生成的信号和上下文
 	IsContinue     bool   `json:"isContinue"`     // 是否为“继续生成”
 	PartialContent string `json:"partialContent"` // 已经生成的前半截内容
+	//用来接收前端传来的临时文件 ID
+	TempFileId string `json:"tempFileId"`
 }
 type ChatSession struct {
 	ID              uint           `gorm:"primary_key" json:"id"`

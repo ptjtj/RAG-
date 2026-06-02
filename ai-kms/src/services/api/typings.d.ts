@@ -107,6 +107,15 @@ declare namespace API {
 
   type SysConfig = true;
 
+  type TempFileResponse = {
+    /** 唯一文件ID */
+    fileId?: string;
+    /** 原始文件名 */
+    fileName?: string;
+    /** 访问路径 */
+    url?: string;
+  };
+
   type UpdateKBRequest = {
     description?: string;
     name: string;

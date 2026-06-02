@@ -6,6 +6,8 @@ import (
 	"backend/services"
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"fmt"
@@ -205,16 +207,37 @@ func StreamChat(c *gin.Context) {
 			fmt.Printf("检索失败: %v\n", err)
 		}
 	}
+	//处理临时附件
+	var tempFileContent string
+	if req.TempFileId != "" {
+		filePath := filepath.Join("./upload/temp", req.TempFileId)
+		fileBytes, err := os.ReadFile(filePath)
+		if err == nil {
+			tempFileContent = string(fileBytes)
+		} else {
+			fmt.Println("读取临时附件失败: %v\n", err)
+		}
+	}
 
 	// =================构造超级 Prompt =================
 	finalPrompt := req.Message
-	if contextStr != "" {
-		finalPrompt = fmt.Sprintf(`%s
-【背景知识】：
-%s
-
-【用户的问题】：
-%s`, currentSystemPrompt, contextStr, req.Message)
+	if contextStr != "" || tempFileContent != "" {
+		// 如果没有走知识库，系统提示词可能是空的，给个保底人设
+		if currentSystemPrompt == "" {
+			currentSystemPrompt = "你是一个专业的 AI 助手。请结合我提供的参考资料，准确回答我的问题。"
+		}
+		promptBuilder := currentSystemPrompt + "\n\n"
+		//如果有全局知识库的内容，拼进去
+		if contextStr != "" {
+			promptBuilder += "【知识库背景】：\n" + contextStr + "\n\n"
+		}
+		//如果有刚上传的附件内容，拼进去
+		if tempFileContent != "" {
+			promptBuilder += "【用户上传的文档内容】：\n" + tempFileContent + "\n\n"
+		}
+		// 最后垫底的是用户当前的问题
+		promptBuilder += "【用户的问题】：\n" + req.Message
+		finalPrompt = promptBuilder
 	}
 
 	// 如果要触发思维链，DeepSeek 官方的推理模型名字必须是 deepseek-reasoner

@@ -30,70 +30,76 @@ export default function Dashboard() {
   const costChartOption = {
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-      backdropFilter: 'blur(10px)', 
-      borderColor: '#E5E5EA',
-      textStyle: { color: '#1D1D1F' },
-      axisPointer: { type: 'line', lineStyle: { color: '#E5E5EA' } }
+      backgroundColor: '#FFFFFF',
+      padding: [16, 20],
+      borderRadius: 12,
+      textStyle: { color: '#1C1F23' },
+      extraCssText: 'box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08); border: none;',
+      axisPointer: {
+        type: 'shadow',
+        shadowStyle: { color: 'rgba(0, 0, 0, 0.03)' },
+      },
+      formatter: function (params: any) {
+        const data = params[0];
+        const date = data.name;
+        const cost = data.value;
+        return `
+          <div style="min-width: 240px; font-family: sans-serif;">
+            <div style="display: flex; justify-content: space-between; font-weight: 600; color: #1C1F23; margin-bottom: 12px; font-size: 15px;">
+              <span>${date}</span>
+              <span style="color: #b0b0b0;">¥${cost}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; color: #8B8E94; font-size: 13px; align-items: center;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="display: inline-block; width: 12px; height: 12px; background: #FFC107; border-radius: 2px;"></span>
+                <span>deepseek-chat & deepseek-reasoner</span>
+              </div>
+              <span>¥${cost}</span>
+            </div>
+          </div>
+        `;
+      },
     },
-    legend: {
-      data: ['Token 消耗', '虚拟成本 (元)'],
-      bottom: 0,
-      icon: 'circle',
-      textStyle: { color: '#86868B' }
+    grid: {
+      left: '0%',
+      right: '2%',
+      bottom: '5%',
+      top: '15%',
+      containLabel: true,
     },
-    grid: { left: '2%', right: '2%', bottom: '12%', top: '10%', containLabel: true },
     xAxis: {
       type: 'category',
-      boundaryGap: false,
-      data: stats.costTrend?.map((item: any) => item.date) || [],
-      axisLine: { show: false }, 
-      axisTick: { show: false }, 
-      axisLabel: { color: '#86868B', margin: 16 }
-    },
-    yAxis: [
-      {
-        type: 'value',
-        splitLine: { lineStyle: { type: 'dashed', color: '#F2F2F7' } }, 
-        axisLabel: { color: '#86868B' }
+      data: stats.costTrend?.map((item: any) => item.date?.split('T')[0]) || [],
+      axisLine: { lineStyle: { color: '#EAEAEA' } }, // 底边轴线
+      axisTick: { show: false }, // 隐藏刻度短线
+      axisLabel: {
+        color: '#8B8E94',
+        margin: 16,
       },
-      {
-        type: 'value',
-        splitLine: { show: false },
-        axisLabel: { color: '#86868B', formatter: '¥{value}' }
-      }
-    ],
+    },
+    yAxis: {
+      type: 'value',
+      splitNumber: 2,
+      splitLine: {
+        lineStyle: { type: 'solid', color: '#F2F2F5' },
+      },
+      axisLabel: {
+        color: '#8B8E94',
+        formatter: '¥{value}',
+      },
+    },
     series: [
       {
-        name: 'Token 消耗',
-        type: 'line',
-        smooth: 0.4, 
-        showSymbol: false, 
-        lineStyle: { width: 3, color: '#0071E3' }, 
-        areaStyle: {
-          color: {
-            type: 'linear',
-            x: 0, y: 0, x2: 0, y2: 1,
-            colorStops: [
-              { offset: 0, color: 'rgba(0,113,227,0.15)' },
-              { offset: 1, color: 'rgba(0,113,227,0.01)' }
-            ]
-          }
-        },
-        data: stats.costTrend?.map((item: any) => item.totalTokens) || [],
-      },
-      {
-        name: '虚拟成本 (元)',
+        name: '消费金额',
         type: 'bar',
-        yAxisIndex: 1,
-        barWidth: '20%',
-        itemStyle: { 
-          color: '#FF3B30', 
-          borderRadius: [4, 4, 0, 0] 
+        barWidth: 20, 
+        itemStyle: {
+          color: '#FFC107', // 黄色
+          borderRadius: [2, 2, 0, 0],
         },
         data: stats.costTrend?.map((item: any) => item.cost.toFixed(4)) || [],
-      }
-    ]
+      },
+    ],
   };
 const hasChartData=stats?.costTrend && stats.costTrend.length >0;
   return (
@@ -150,18 +156,21 @@ const hasChartData=stats?.costTrend && stats.costTrend.length >0;
       </div>{' '}
       {/* 底部宽体大卡片 */}
       <div className="bg-white rounded-3xl p-6 shadow-[0_2px_20px_rgba(0,0,0,0.02)] w-full box-border">
-        <div className="mb-6 flex justify-between items-end">
-          <div>
-            <h2 className="text-xl font-semibold text-[#1D1D1F] tracking-tight">
-              成本与使用趋势
-            </h2>
-            <p className="text-[#86868B] text-sm mt-1">
-              近 7 天 Token 消耗与虚拟费用折算
-            </p>
-          </div>
+        <div className="mb-6 flex items-baseline gap-4 whitespace-nowrap flex-nowrap">
+          <h2 className="text-lg font-medium text-[#1D1D1F] shrink-0">
+            消费金额
+          </h2>
+          <span className="text-lg text-[#8B8E94] shrink-0">
+            ¥
+            {(
+              stats.costTrend?.reduce(
+                (sum: number, item: any) => sum + item.cost,
+                0,
+              ) || 0
+            ).toFixed(2)}
+          </span>
         </div>
-
-        <div className="h-[400px] w-full">
+        <div className="h-[350px] w-full">
           {!loading ? (
             hasChartData ? (
               <ReactECharts

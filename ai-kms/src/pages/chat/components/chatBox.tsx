@@ -1,6 +1,6 @@
 import MarkdownBlock from '@/components/markdownBlock';
 import { getSessionsIdMessages } from '@/services/api/huihuaguanli';
-
+import { useChatStream,Message } from '@/hooks/useChatStream';
 import { postUploadTemp } from '@/services/api/zhinengduihua';
 import { getKnowledgeBases } from '@/services/api/knowledgeBase';
 import {
@@ -32,19 +32,6 @@ import {
 import { useEffect, useRef, useState } from 'react';
 
 const { Content } = Layout;
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  reasoning?: string; // 记录 AI 的思考过程
-  isThinking?: boolean; // 是否正在思考中
-  thinkingTime?: number; // 思考耗时(秒)
-  isStopped?: boolean;
-  sources?: { title: string; score: number }[];
-  attachedFile?:{id:string;name:string};
-}
-
 interface ChatBoxProps {
   currentSessionId: number | null; // 接收父组件传来的当前会话 ID
   onRefreshSessions: () => void;
@@ -69,26 +56,33 @@ export default function ChatBox({
 }: ChatBoxProps) {
   const [messageApi, contextHolder] = message.useMessage();
   const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  //使用 Hook 接管所有流式状态和底层请求
+  const {
+    messages,
+    setMessages,
+    isLoading,
+    sendMessage,
+    continueMessage,
+    stopStream,
+  } = useChatStream(currentSessionId);
+
   const [pendingFile, setPendingFile] = useState<{
     id: string;
     name: string;
     url?: string;
   } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  //获取滚动容器的 DOM
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const isAtBottomRef = useRef(true);
   const [kbList, setKbList] = useState<any[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedKbId, setSelectedKbId] = useState<number | undefined>(
     undefined,
   );
-  const [messages, setMessages] = useState<Message[]>([]);
-  // 用来掐断网络请求
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const isStoppingRef = useRef<boolean>(false); // 标记是否强制停止打字机逻辑
+  //控制快捷菜单显示的状态;
+  const [showCommands, setShowCommands] = useState(false);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
 
   //获取知识库列表
   useEffect(() => {
@@ -97,16 +91,13 @@ export default function ChatBox({
         const res = await getKnowledgeBases();
         if (res.code === 200 && res.data) {
           setKbList(res.data);
-          // if (res.data.length > 0) {
-          //   setSelectedKbId(res.data[0].id);
-          // }
         }
       } catch (error) {
         messageApi.error('获取知识库列表失败');
       }
     };
     fetchKbs();
-  }, []);
+  }, [messageApi]);
 
   //监听会话 ID 变化，拉取对应的聊天历史
   useEffect(() => {
@@ -121,6 +112,9 @@ export default function ChatBox({
               id: m.id.toString(),
               role: m.role,
               content: m.content,
+              attachedFile: m.fileId
+                ? { id: m.fileId, name: m.fileName }
+                : undefined,
             }));
             setMessages(historyMsgs);
           } else {
@@ -139,7 +133,7 @@ export default function ChatBox({
       };
       fetchHistoryMessages();
     }
-  }, [currentSessionId]);
+  }, [currentSessionId, setMessages]);
 
   //  自动滚动
   const handleScroll = () => {
@@ -158,8 +152,6 @@ export default function ChatBox({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-  //控制快捷菜单显示的状态;
-  const [showCommands, setShowCommands] = useState(false);
   const handleInputChange = (e: any) => {
     const val = e.target.value;
     setInputValue(val);
@@ -176,294 +168,22 @@ export default function ChatBox({
     setShowCommands(false);
     //让输入框重新聚焦
   };
-  //会话停止
-  const handleStop = () => {
-    isStoppingRef.current = true;
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    setIsLoading(false);
-  };
-  // 发送消息逻辑 流式发送与解析引擎
+  //极简版的发送逻辑：只管 UI(流式发送与解析引擎) 清理，其他全交给 Hook
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading) return;
     isAtBottomRef.current = true;
-    isStoppingRef.current = false;
-    abortControllerRef.current = new AbortController();
-
     const userText = inputValue.trim();
-    const fileIdToSend=pendingFile?.id;
-    const uiAttachedFile=pendingFile ? {id:pendingFile.id,name:pendingFile.name}:undefined;
+    const fileSnapshot = pendingFile;
+    // UI 立即响应
     setInputValue('');
-    setIsLoading(true);
     setPendingFile(null);
-
-    const newUserMsg: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: userText,
-      attachedFile: uiAttachedFile,
-    };
-    setMessages((prev) => [...prev, newUserMsg]);
-
-    const aiMsgId = (Date.now() + 1).toString();
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: aiMsgId,
-        role: 'assistant',
-        content: '',
-        reasoning: '',
-        isThinking: true,
-        thinkingTime: 0,
-        sources: [],
-      },
-    ]);
-    const startTime = Date.now();
-    try {
-      const token = localStorage.getItem('accessToken') || '';
-      const response = await fetch('/api/v1/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          message: userText,
-          kbId: selectedKbId || 0,
-          sessionId: currentSessionId,
-          tempFileId:fileIdToSend || "",
-        }),
-        signal: abortControllerRef.current.signal, // 支持中途打断
-      });
-      if (!response.ok) throw new Error('网络请求异常');
-      //开启流式阅读器
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder('utf-8');
-      let currentReasoning = '';
-      let currentContent = '';
-      //引入残余数据缓冲区，解决网络截断与粘包
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader!.read();
-        if (done) break;
-
-        // 解码二进制数据块
-        buffer += decoder.decode(value, { stream: true });
-        //按标准的换行符切分出每一行
-        let lineEndIdx;
-        while ((lineEndIdx = buffer.indexOf('\n')) !== -1) {
-          const line = buffer.slice(0, lineEndIdx).trim();
-          buffer = buffer.slice(lineEndIdx + 1); // 留下还没输完的残余数据
-          if (line.startsWith('data: ')) {
-            const dataStr = line.replace('data:', '').trim();
-            if (!dataStr) continue;
-            try {
-              const data = JSON.parse(dataStr);
-              const costTime = Math.floor((Date.now() - startTime) / 1000);
-
-              if (data.type === 'reasoning') {
-                currentReasoning += data.content;
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === aiMsgId
-                      ? {
-                          ...msg,
-                          reasoning: currentReasoning,
-                          thinkingTime: costTime,
-                        }
-                      : msg,
-                  ),
-                );
-              } else if (data.type === 'answer') {
-                // 一旦开始输出正式内容，就说明思考结束了
-                currentContent += data.content;
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === aiMsgId
-                      ? {
-                          ...msg,
-                          content: currentContent,
-                          isThinking: false,
-                        }
-                      : msg,
-                  ),
-                );
-              } else if (data.type === 'done') {
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === aiMsgId
-                      ? {
-                          ...msg,
-                          sources: data.sources || [],
-                          isThinking: false,
-                        }
-                      : msg,
-                  ),
-                );
-              }
-            } catch (e) {
-              console.error('SSE 行解析失败:', e, line);
-            }
-          }
-        }
-      }
-      //把左侧的“新对话”更新成 AI 自动总结的具体标题
-      if (onRefreshSessions) {
-        setTimeout(() => {
-          onRefreshSessions();
-        }, 2000);
-      }
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        console.log('用户主动终止了对话');
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === aiMsgId
-              ? {
-                  ...msg,
-                  isThinking: false,
-                  // 只要被打断，无条件标记为已停止，呼出继续生成按钮
-                  isStopped: true,
-                }
-              : msg,
-          ),
-        );
-        return;
-      }
-      messageApi.error('网络请求失败');
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === aiMsgId
-            ? {
-                ...msg,
-                content:
-                  '**网络错误：** 无法连接到服务器，请检查后端运行状态。',
-                isThinking: false,
-              }
-            : msg,
-        ),
-      );
-    } finally {
-      setIsLoading(false);
-      abortControllerRef.current = null;
-    }
-  };
+    //呼叫底层引擎发送
+    await sendMessage(userText,selectedKbId,fileSnapshot,onRefreshSessions);
+  }  
   //继续生成
   const handleContinue = async (targetMsg: Message) => {
     if (isLoading) return;
-    isStoppingRef.current = false;
-    abortControllerRef.current = new AbortController();
-    // 找到这条被卡住的消息对应的 User 提问 (它的上一条)
-    const msgIndex = messages.findIndex((m) => m.id === targetMsg.id);
-    const userMsg = messages[msgIndex - 1];
-    const userText = userMsg.content || '';
-    setIsLoading(true);
-
-    setMessages((prev) =>
-      prev.map((msg) =>
-        msg.id === targetMsg.id
-          ? { ...msg, isStopped: false, isThinking: true }
-          : msg,
-      ),
-    );
-    const startTime = Date.now();
-    try {
-      const token = localStorage.getItem('accessToken') || '';
-
-      const response = await fetch('/api/v1/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          message: userText,
-          kbId: selectedKbId || 0,
-          sessionId: currentSessionId,
-          isContinue: true,
-          partialContent: targetMsg.content,
-        }),
-        signal: abortControllerRef.current.signal,
-      });
-      if (!response.ok) throw new Error('网络异常');
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder('utf-8');
-      //将初始游标设定为已有的内容，实现无缝接字
-      let currentReasoning = targetMsg.reasoning || '';
-      let currentContent = targetMsg.content || '';
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader!.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        let lineEndIdx;
-        while ((lineEndIdx = buffer.indexOf('\n')) !== -1) {
-          const line = buffer.slice(0, lineEndIdx).trim();
-          buffer = buffer.slice(lineEndIdx + 1);
-
-          if (line.startsWith('data: ')) {
-            const dataStr = line.replace('data: ', '').trim();
-            if (!dataStr) continue;
-            try {
-              const data = JSON.parse(dataStr);
-              if (data.type === 'reasoning') {
-                currentReasoning += data.content;
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === targetMsg.id
-                      ? { ...msg, reasoning: currentReasoning }
-                      : msg,
-                  ),
-                );
-              } else if (data.type === 'answer') {
-                currentContent += data.content;
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === targetMsg.id
-                      ? { ...msg, content: currentContent, isThinking: false }
-                      : msg,
-                  ),
-                );
-              } else if (data.type === 'done') {
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === targetMsg.id
-                      ? {
-                          ...msg,
-                          sources: data.sources || [],
-                          isThinking: false,
-                        }
-                      : msg,
-                  ),
-                );
-              }
-            } catch (e) {
-              console.error('SSE 行解析失败:', e, line);
-            }
-          }
-        }
-      }
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        // 如果再次被暂停，依然贴上已停止标签
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === targetMsg.id
-              ? { ...msg, isThinking: false, isStopped: true }
-              : msg,
-          ),
-        );
-        return;
-      }
-      messageApi.error('继续生成失败');
-    } finally {
-      setIsLoading(false);
-      abortControllerRef.current = null;
-    }
+    await continueMessage(targetMsg,selectedKbId); 
   };
   const handleCopy = async (text: string, msgId: string) => {
     try {
@@ -862,7 +582,7 @@ export default function ChatBox({
                 size="large"
                 className="mb-1 flex-shrink-0 bg-white border-none shadow-sm text-gray-600"
                 icon={<PauseCircleOutlined />}
-                onClick={handleStop}
+                onClick={stopStream}
               />
             ) : (
               <Button

@@ -102,7 +102,6 @@ func UploadDocument(c *gin.Context) {
 		Status:          "pending",
 	}
 
-	// ⚠️ 帮你把之前手滑多复制的一遍 DB.Create 删掉了，只留一次插入
 	if err := config.DB.Create(&doc).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "记录数据库失败"})
 		return

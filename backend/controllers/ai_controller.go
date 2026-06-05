@@ -4,7 +4,6 @@ import (
 	"backend/config"
 	"backend/models"
 	"backend/services"
-	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -30,125 +29,6 @@ func generateTitleByAI(firstMsg string) string {
 	return title
 }
 
-// SimpleChat AI 聊天测试接口
-func SimpleChat(c *gin.Context) {
-	var req models.ChatRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Code: 400, Message: "参数错误: " + err.Error()})
-		return
-	}
-	// ================= 把用户的问题存进数据库 =================
-	if req.SessionID > 0 {
-		userMsg := models.ChatMessage{
-			SessionID: req.SessionID,
-			Role:      "user",
-			Content:   req.Message,
-		}
-		config.DB.Create(&userMsg)
-	}
-	userMsg := req.Message
-	var contextStr string
-	var sources []services.SourceItem //  准备装入溯源信息
-
-	// 语义检索：带着 KbID 去向量记忆库里找线索
-	if req.KbID > 0 {
-		var err error
-		contextStr, sources, err = services.SearchTopChunksWithSources(req.KbID, userMsg)
-		if err != nil {
-			fmt.Printf("检索失败: %v\n", err)
-		}
-	}
-
-	//  构造超级 Prompt
-	finalPrompt := userMsg
-	if contextStr != "" {
-		finalPrompt = fmt.Sprintf(`你是一个专业的企业知识库助手。请根据以下【背景知识】准确回答用户的问题。
-若背景知识无法回答问题，请诚实说明“知识库中未找到相关信息”，不要瞎编。
-
-【背景知识】：
-%s
-
-【用户的问题】：
-%s`, contextStr, userMsg)
-	}
-
-	modelName := services.GetSysConfig("llm_model_name")
-	if modelName == "" {
-		modelName = "deepseek-chat" // 兜底默认值
-	}
-
-	var baseURL, apiKey string
-
-	if strings.HasPrefix(modelName, "deepseek") {
-		baseURL = "https://api.deepseek.com/v1"
-		apiKey = services.GetSysConfig("deepseek_api_key")
-	} else if strings.HasPrefix(modelName, "glm") {
-		baseURL = "https://open.bigmodel.cn/api/paas/v4"
-		apiKey = services.GetSysConfig("zhipu_api_key")
-	}
-
-	if apiKey == "" {
-		c.JSON(http.StatusInternalServerError, models.Response{Code: 500, Message: "系统未配置该模型的 API Key，请前往【系统设置】进行配置！"})
-		return
-	}
-
-	aiConfig := openai.DefaultConfig(apiKey)
-	aiConfig.BaseURL = baseURL
-	client := openai.NewClientWithConfig(aiConfig)
-	//组装大模型请求参数
-	chatReq := openai.ChatCompletionRequest{
-		Model: modelName,
-		Messages: []openai.ChatCompletionMessage{
-			{
-				Role:    openai.ChatMessageRoleUser,
-				Content: finalPrompt,
-			},
-		},
-	}
-	resp, err := client.CreateChatCompletion(context.Background(), chatReq)
-	if err != nil {
-		c.JSON(http.StatusOK, models.Response{
-			Code:    400,
-			Message: "大模型拒绝了访问，请前往【系统设置】检查 API Key 是否填对！底层报错: " + err.Error()})
-		return
-	}
-	// 提取 AI 的回答文本
-	answer := resp.Choices[0].Message.Content
-
-	// =================  把 AI 的回答存进数据库 =================
-	if req.SessionID > 0 && answer != "" {
-		aiMsg := models.ChatMessage{
-			SessionID: req.SessionID,
-			Role:      "assistant",
-			Content:   answer,
-		}
-		config.DB.Create(&aiMsg)
-	}
-
-	if req.SessionID > 0 {
-		var session models.ChatSession
-		config.DB.First(&session, req.SessionID)
-		if session.Title == "新对话" {
-			// 启动一个 Goroutine（协程）去异步处理，不阻塞当前的对话返回
-			go func(sid uint, msg string) {
-				newTitle := generateTitleByAI(msg)
-				// 更新数据库
-				config.DB.Model(&models.ChatSession{}).Where("id = ?", sid).Update("title", newTitle)
-				fmt.Printf("会话 %d 标题已自动更新为: %s\n", sid, newTitle)
-			}(req.SessionID, req.Message)
-		}
-	}
-	// 将返回的 Data 变成一个包含 text 和 sources 的对象！
-	c.JSON(http.StatusOK, models.Response{
-		Code:    200,
-		Message: "success",
-		Data: map[string]interface{}{
-			"text":    answer,  // AI 的回答
-			"sources": sources, // 刚才捞出来的文件来源
-		},
-	})
-}
-
 // StreamChat AI 流式聊天接口 (带思维链实时输出)
 // @Summary 智能对话 (流式返回)
 // @Description 采用 SSE (Server-Sent Events) 实现的流式打字机和思维链输出
@@ -172,6 +52,9 @@ func StreamChat(c *gin.Context) {
 			SessionID: req.SessionID,
 			Role:      "user",
 			Content:   req.Message,
+			//流式接口也要把附件的唯一ID和原始名字持久化到 MySQL
+			FileId:   req.TempFileId,
+			FileName: req.TempFileName,
 		}
 		config.DB.Create(&userMsg)
 		//异步更新会话标题
@@ -215,7 +98,7 @@ func StreamChat(c *gin.Context) {
 		if err == nil {
 			tempFileContent = string(fileBytes)
 		} else {
-			fmt.Println("读取临时附件失败: %v\n", err)
+			fmt.Printf("读取临时附件失败: %v\n", err)
 		}
 	}
 

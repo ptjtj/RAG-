@@ -21,7 +21,8 @@ type ChatRequest struct {
 	IsContinue     bool   `json:"isContinue"`     // 是否为“继续生成”
 	PartialContent string `json:"partialContent"` // 已经生成的前半截内容
 	//用来接收前端传来的临时文件 ID
-	TempFileId string `json:"tempFileId"`
+	TempFileId   string `json:"tempFileId"`
+	TempFileName string `json:"tempFileName"`
 }
 type ChatSession struct {
 	ID              uint           `gorm:"primary_key" json:"id"`
@@ -39,6 +40,8 @@ type ChatMessage struct {
 	SessionID uint      `json:"sessionId" gorm:"index"`
 	Role      string    `json:"role" `
 	Content   string    `gorm:"type:text" json:"content"`
+	FileId    string    `gorm:"column:file_id;type:varchar(255)" json:"fileId"`
+	FileName  string    `gorm:"column:file_name;type:varchar(255)" json:"fileName"`
 	CreatedAt time.Time `json:"createdAt"`
 	Tokens    int       `json:"token" gorm:"default:0"`
 }
